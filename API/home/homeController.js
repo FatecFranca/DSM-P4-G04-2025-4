@@ -233,6 +233,26 @@ router.get("/testes/copo/:copo_id", (req, res) => {
     });
 });
 
+// Excluir um teste específico de um copo
+router.delete("/testes/:teste_id", (req, res) => {
+    const { teste_id } = req.params;
+
+    // Verifica se existe o teste
+    connection.query("SELECT * FROM Teste WHERE id = ?", [teste_id], (err, results) => {
+        if (err) return res.status(500).json({ error: err });
+        if (results.length === 0) {
+            return res.status(404).json({ message: "Teste não encontrado." });
+        }
+
+        // Deleta o teste
+        connection.query("DELETE FROM Teste WHERE id = ?", [teste_id], (err, delResults) => {
+            if (err) return res.status(500).json({ error: err });
+
+            res.status(200).json({ message: "Teste excluído com sucesso!" });
+        });
+    });
+});
+
 /* 
 ======== INICIAR TESTE - Apenas registra os testes e aciona o ESP32 ========
 O IoT é quem fará as medições e devolverá t0, t10...t120 e k posteriormente.
