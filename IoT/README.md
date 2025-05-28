@@ -30,18 +30,18 @@ A ideia é enviar os dados em um formato JSON, parecido com este:
 
 ## Configuração e Uso (Diretrizes Gerais)
 1. Ambiente ESP32:
-- Configure o ambiente de desenvolvimento para o ESP32 (ex: Arduino IDE com o board manager do ESP32, ou PlatformIO).
-- Instale as bibliotecas necessárias: OneWire (para comunicação com DS18B20), DallasTemperature (para ler a temperatura dos DS18B20), WiFi (para conectar à rede), e uma biblioteca para requisições HTTP (ex: HTTPClient).
+  - Configure o ambiente de desenvolvimento para o ESP32 (ex: Arduino IDE com o board manager do ESP32, ou PlatformIO).
+  - Instale as bibliotecas necessárias: OneWire (para comunicação com DS18B20), DallasTemperature (para ler a temperatura dos DS18B20), WiFi (para conectar à rede), e uma biblioteca para requisições HTTP (ex: HTTPClient).
 
 2. Código do ESP32:
-- No código, configure as credenciais da rede Wi-Fi (SSID e senha).
-- Defina o endereço do endpoint da API para onde os dados de temperatura serão enviados (ex: http://13.68.97.186:4000/dados_iot).
-- Implemente a lógica para ler os sensores, montar o JSON e enviá-lo via HTTP POST.
+  - No código, configure as credenciais da rede Wi-Fi (SSID e senha).
+  - Defina o endereço do endpoint da API para onde os dados de temperatura serão enviados (ex: http://13.68.97.186:4000/dados_iot).
+  - Implemente a lógica para ler os sensores, montar o JSON e enviá-lo via HTTP POST.
 
 3. Conexão Física:
-- Conecte os sensores DS18B20 aos pinos corretos do ESP32, utilizando um resistor de pull-up (geralmente 4.7kΩ) no pino de dados.
+  - Conecte os sensores DS18B20 aos pinos corretos do ESP32, utilizando um resistor de pull-up (geralmente 4.7kΩ) no pino de dados.
 
 4. Deploy e Monitoramento:
-- Compile e faça o upload do código para o ESP32.
-- Monitore as saídas para verificar se está conectando ao Wi-Fi e enviando os dados corretamente.
+  - Compile e faça o upload do código para o ESP32.
+  - Monitore as saídas para verificar se está conectando ao Wi-Fi e enviando os dados corretamente.
 
