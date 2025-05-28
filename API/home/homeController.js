@@ -292,15 +292,36 @@ async function iniciarTesteESP32(usuario_id, copos, tipo, test_ids) {
 /* 
 ======== RECEBER OS RESULTADOS DO TESTE (após as 2h, ESP32 envia os dados medidos) ========
 */
-router.post('/resultadosTestes', async (req, res) => {
-    const { usuario_id, copo_id, tipo, data_inicio, data_fim, t0, t10, t20, t30, t40, t50, t60, t70, t80, t90, t100, t110, t120, k } = req.body;
+// Função utilitária para converter ISO 8601 para formato MySQL DATETIME
+function parseToMySQLDatetime(str) {
+    if (!str) return null;
+    // Cria objeto Date a partir da string ISO
+    const d = new Date(str);
+    if (isNaN(d)) return null;
+    // Retorna no formato 'YYYY-MM-DD HH:MM:SS'
+    return d.toISOString().slice(0, 19).replace('T', ' ');
+}
 
-    // Checagem básica
+// Rota para registrar resultado do teste
+router.post('/resultadosTestes', async (req, res) => {
+    const {
+        usuario_id, copo_id, tipo,
+        data_inicio, data_fim,
+        t0, t10, t20, t30, t40, t50, t60, t70, t80, t90, t100, t110, t120, k
+    } = req.body;
+
     if (!usuario_id || !copo_id || !tipo || !data_inicio || !data_fim || t0 === undefined || k === undefined) {
         return res.status(400).json({ message: 'Campos obrigatórios ausentes.' });
     }
 
-    // Monta o SQL para inserir o teste completo
+    // Converte datas para o formato aceito pelo MySQL
+    const data_inicio_mysql = parseToMySQLDatetime(data_inicio);
+    const data_fim_mysql = parseToMySQLDatetime(data_fim);
+
+    if (!data_inicio_mysql || !data_fim_mysql) {
+        return res.status(400).json({ message: 'Formato de data/hora inválido.' });
+    }
+
     const sql = `
         INSERT INTO Teste (
             usuario_id, copo_id, tipo, data_inicio, data_fim,
@@ -309,7 +330,7 @@ router.post('/resultadosTestes', async (req, res) => {
     `;
 
     const params = [
-        usuario_id, copo_id, tipo, data_inicio, data_fim,
+        usuario_id, copo_id, tipo, data_inicio_mysql, data_fim_mysql,
         t0, t10, t20, t30, t40, t50, t60, t70, t80, t90, t100, t110, t120, k
     ];
 
@@ -319,7 +340,7 @@ router.post('/resultadosTestes', async (req, res) => {
         return res.status(201).json({ message: 'Teste registrado com sucesso!', teste_id: insertId });
     } catch (err) {
         console.error(err);
-        return res.status(500).json({ message: 'Erro ao salvar resultados no banco.' });
+        return res.status(500).json({ message: 'Erro ao salvar resultados no banco.', erro: err.message });
     }
 });
 
