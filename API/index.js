@@ -1,6 +1,5 @@
 const Express = require('express');
 const app = Express();
-//const database = require("./database/database");
 const connection = require("./database/connection");
 const homeController = require("./home/homeController");
 const bodyParser = require('body-parser');
