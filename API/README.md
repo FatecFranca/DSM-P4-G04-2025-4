@@ -89,14 +89,16 @@ O endereço base para acessar a API é: `http://13.68.97.186:4000`
 - A API se conecta a um banco de dados MySQL (porta `3306`).
 - As credenciais de acesso (host, usuário, senha, nome do banco) devem ser configuradas no arquivo `.env`.
 
-## Arquivo `.env` (Modelo)
-É um arquivo chamado `.env` que está na raiz da `VM` com as credenciais de acesso.
+## Arquivo `.env` 
+É um arquivo `.env` que está na raiz da `VM` com as credenciais de acesso.
 
-# Configurações da Aplicação/API
-API_PORT=4000
-NODE_ENV=development # ou production, testing
+## Configurações da Aplicação/API
+```
+- API_PORT=4000
+- NODE_ENV=development # ou production, testing
+```
 
-# Configurações do Banco de Dados (MySQL)
+## Configurações do Banco de Dados (MySQL)
 ```
 DB_HOST=localhost # Ou o IP/host do servidor de banco de dados (pode ser 127.0.0.1 se estiver na mesma VM)
 DB_USER=seu_usuario_do_banco
@@ -105,9 +107,11 @@ DB_NAME=thermotrack_db # Nome do banco de dados da aplicação
 DB_PORT=3306
 ```
 
-# Credenciais da VM
-# VM_HOST=13.68.97.186
-# VM_USER=danilopi
-# VM_PASSWORD=FatecFranca123*
+## Credenciais da VM
+```
+- VM_HOST=13.68.97.186
+- VM_USER=danilopi
+- VM_PASSWORD=FatecFranca123*
+```
 
 ### Estas informações somente foram divulgadas quando a VM já não estava mais no ar!
