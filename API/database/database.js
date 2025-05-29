@@ -5,7 +5,7 @@ var mysql = require("mysql2");
 // criando uma variável connection com o método createConnection
 // passando as informações de conexão
 var connection = mysql.createConnection({
-    host:"localhost",
+    host:"13.68.97.186:4000",
     user:"admthermo",
     password:"FatecFranca123#"
 });
