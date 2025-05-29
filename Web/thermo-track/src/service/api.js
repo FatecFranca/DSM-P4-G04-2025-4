@@ -7,7 +7,7 @@ console.log('BASE_URL configurada:', BASE_URL); // Log para verificar a URL
 // Cria uma instância do axios com a URL base
 const api = axios.create({
   baseURL: BASE_URL,
-  timeout: 10000, // 10 segundos
+  timeout: 10000,
   headers: {
     'Content-Type': 'application/json',
     'Accept': 'application/json'
