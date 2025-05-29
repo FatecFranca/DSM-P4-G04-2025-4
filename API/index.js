@@ -1,10 +1,18 @@
 const Express = require('express');
 const app = Express();
+const cors = require('cors');
 const connection = require("./database/connection");
 const homeController = require("./home/homeController");
 const bodyParser = require('body-parser');
 const porta = 4000;
 
+// Habilita o CORS para todas as origens (ou ajuste para seu domínio no ambiente de produção)
+
+app.use(cors({
+  origin: 'http://localhost:3000', // Permitir sua origem
+  methods: ['GET', 'POST', 'PUT', 'DELETE'],
+  allowedHeaders: ['Content-Type', 'Authorization']
+}));
 
 // engine vai ser ejs
 app.set("view engine", "ejs");
@@ -16,7 +24,7 @@ app.use(bodyParser.json());
 
 app.use("/", homeController);
 
-app.listen(porta, () => {
+app.listen(porta, '0.0.0.0', () => {
 
     console.log("Servidor rodando na porta: " + porta);
 
