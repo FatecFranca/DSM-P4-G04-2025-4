@@ -9,7 +9,7 @@ const porta = 4000;
 // Habilita o CORS para todas as origens (ou ajuste para seu domínio no ambiente de produção)
 
 app.use(cors({
-  origin: 'http://localhost:3000', // Permitir sua origem
+  origin: ["http://localhost:3000", "http://localhost:8081"]
   methods: ['GET', 'POST', 'PUT', 'DELETE'],
   allowedHeaders: ['Content-Type', 'Authorization']
 }));
