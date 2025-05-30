@@ -1,28 +1,27 @@
-// criando uma variavel mysql importando o mysql2 (biblioteca)
 var mysql = require("mysql2");
 
-// realizando a conexão com o banco de dados
-// criando uma variável connection com o método createConnection
-// passando as informações de conexão
 var connection = mysql.createConnection({
-    host:"13.68.97.186:4000",
-    user:"admthermo",
-    password:"FatecFranca123#"
+    host: "13.68.97.186",  // Removido :4000
+    user: "admthermo",
+    password: "FatecFranca123#"
 });
 
 connection.connect(function(err) {
-   
-    if(err) throw err;
-    
+    if(err) {
+        console.error("Erro na conexão:", err);
+        return;
+    }
     console.log("Conectado!");
-
-    connection.query("CREATE DATABASE if not exists MINHA_API", 
+    
+    connection.query("CREATE DATABASE IF NOT EXISTS ThermoTrack", 
         function (err, result) {
-        if (err) throw err;
-        console.log("Banco de Dados OK !");
-      });
-
+            if (err) {
+                console.error("Erro ao criar banco de dados:", err);
+                return;
+            }
+            console.log("Banco de Dados OK!");
+        }
+    );
 });
 
-
-
+module.exports = connection;

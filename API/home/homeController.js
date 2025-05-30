@@ -2,90 +2,155 @@ const express = require("express");
 const router = express.Router();
 const connection = require("../database/connection");
 const axios = require('axios');
+const bcrypt = require('bcrypt');
+const jwt = require('jsonwebtoken');
+
+// Chave secreta para JWT (use uma variável de ambiente em produção)
+const JWT_SECRET = process.env.JWT_SECRET || 'sua_chave_secreta_aqui';
+
+// Middleware de autenticação
+const authenticateToken = (req, res, next) => {
+    const authHeader = req.headers['authorization'];
+    const token = authHeader && authHeader.split(' ')[1];
+
+    if (token == null) return res.sendStatus(401);
+
+    jwt.verify(token, JWT_SECRET, (err, user) => {
+        if (err) return res.sendStatus(403);
+        req.user = user;
+        next();
+    });
+};
 
 // Página inicial
 router.get("/", (req, res) => {
-    res.render("index");
+    res.json({ message: "API ThermoTrack funcionando", status: "online" });
 });
 
 /* ===================== ROTAS DE USUÁRIO ===================== */
-
 // Obter todos os usuários
-router.get("/usuarios", (req, res) => {
-    connection.query("SELECT * FROM Usuario", (err, results) => {
+router.get("/usuarios", authenticateToken, (req, res) => {
+    connection.query("SELECT id, nome, cpf, email FROM Usuario", (err, results) => {
         if (err) return res.status(500).json({ error: err });
         res.json(results);
     });
 });
 
 // Cadastrar novo usuário
-router.post("/usuarios", (req, res) => {
+router.post("/usuarios", async (req, res) => {
     const { nome, senha, cpf, email } = req.body;
-
+    
     if (!nome || !senha || !cpf || !email) {
         return res.status(400).json({ message: "Todos os campos são obrigatórios." });
     }
 
-    const query = "INSERT INTO Usuario (nome, senha, cpf, email) VALUES (?, ?, ?, ?)";
-    connection.query(query, [nome, senha, cpf, email], (err, results) => {
-        if (err) {
-            if (err.code === 'ER_DUP_ENTRY') {
-                return res.status(409).json({ message: "CPF ou e-mail já cadastrado." });
+    try {
+        // Hash da senha
+        const hashedSenha = await bcrypt.hash(senha, 10);
+
+        const query = "INSERT INTO Usuario (nome, senha, cpf, email) VALUES (?, ?, ?, ?)";
+        connection.query(query, [nome, hashedSenha, cpf, email], (err, results) => {
+            if (err) {
+                if (err.code === 'ER_DUP_ENTRY') {
+                    return res.status(409).json({ message: "CPF ou e-mail já cadastrado." });
+                }
+                return res.status(500).json({ error: err });
             }
-            return res.status(500).json({ error: err });
-        }
-        res.status(201).json({ message: "Usuário cadastrado com sucesso!", userId: results.insertId });
-    });
+            
+            // Gerar token JWT
+            const token = jwt.sign(
+                { id: results.insertId, nome, cpf, email }, 
+                JWT_SECRET, 
+                { expiresIn: '24h' }
+            );
+
+            res.status(201).json({ 
+                message: "Usuário cadastrado com sucesso!", 
+                userId: results.insertId,
+                token: token
+            });
+        });
+    } catch (hashError) {
+        res.status(500).json({ message: "Erro ao processar cadastro", error: hashError });
+    }
 });
 
-// Consultar usuário pelo CPF ou e-mail (login)
-router.get("/usuarios/login", (req, res) => {
-    const { cpf, email } = req.query;
-
-    if (!cpf && !email) {
-        return res.status(400).json({ message: "É necessário informar CPF ou e-mail." });
+// Login de usuário
+router.post("/usuarios/login", (req, res) => {
+    const { cpf, senha } = req.body;
+    
+    if (!cpf || !senha) {
+        return res.status(400).json({ message: "CPF e senha são obrigatórios." });
     }
 
-    let query = "SELECT * FROM Usuario WHERE ";
-    const params = [];
-    if (cpf) {
-        query += "cpf = ?";
-        params.push(cpf);
-    }
-    if (email) {
-        if (params.length > 0) query += " OR ";
-        query += "email = ?";
-        params.push(email);
-    }
-
-    connection.query(query, params, (err, results) => {
+    const query = "SELECT * FROM Usuario WHERE cpf = ?";
+    connection.query(query, [cpf], async (err, results) => {
         if (err) return res.status(500).json({ error: err });
-        if (results.length === 0) return res.status(404).json({ message: "Usuário não encontrado." });
+        
+        if (results.length === 0) {
+            return res.status(404).json({ message: "Usuário não encontrado." });
+        }
+
         const user = results[0];
-        delete user.senha;
-        res.json(user);
+
+        try {
+            // Comparar senha
+            const senhaCorreta = await bcrypt.compare(senha, user.senha);
+            
+            if (!senhaCorreta) {
+                return res.status(401).json({ message: "Senha incorreta." });
+            }
+
+            // Gerar token JWT
+            const token = jwt.sign(
+                { id: user.id, nome: user.nome, cpf: user.cpf, email: user.email }, 
+                JWT_SECRET, 
+                { expiresIn: '24h' }
+            );
+
+            // Remover senha antes de enviar
+            delete user.senha;
+
+            res.json({
+                message: "Login realizado com sucesso",
+                user: user,
+                token: token
+            });
+        } catch (compareError) {
+            res.status(500).json({ message: "Erro no processo de login", error: compareError });
+        }
     });
 });
 
 // Alterar senha do usuário
-router.put("/usuarios/senha", (req, res) => {
+router.put("/usuarios/senha", authenticateToken, async (req, res) => {
     const { cpf, email, novaSenha } = req.body;
-
+    
     if (!novaSenha || (!cpf && !email)) {
         return res.status(400).json({ message: "É necessário informar CPF ou e-mail e a nova senha." });
     }
 
-    const query = "UPDATE Usuario SET senha = ? WHERE cpf = ? OR email = ?";
-    const params = [novaSenha, cpf, email];
+    try {
+        // Hash da nova senha
+        const hashedNovaSenha = await bcrypt.hash(novaSenha, 10);
 
-    connection.query(query, params, (err, results) => {
-        if (err) return res.status(500).json({ error: err });
-        if (results.affectedRows === 0) {
-            return res.status(404).json({ message: "Usuário não encontrado." });
-        }
-        res.json({ message: "Senha alterada com sucesso!" });
-    });
+        const query = "UPDATE Usuario SET senha = ? WHERE cpf = ? OR email = ?";
+        const params = [hashedNovaSenha, cpf, email];
+        
+        connection.query(query, params, (err, results) => {
+            if (err) return res.status(500).json({ error: err });
+            
+            if (results.affectedRows === 0) {
+                return res.status(404).json({ message: "Usuário não encontrado." });
+            }
+            
+            res.json({ message: "Senha alterada com sucesso!" });
+        });
+    } catch (hashError) {
+        res.status(500).json({ message: "Erro ao alterar senha", error: hashError });
+    }
 });
+
 
 /* ===================== ROTAS DE COPO ===================== */
 
