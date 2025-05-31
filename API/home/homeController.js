@@ -48,7 +48,7 @@ router.get("/usuarios/login", (req, res) => {
 
     let query = "SELECT * FROM Usuario WHERE ";
     const params = [];
-    if (nome) {
+    if (cpf) {
         query += "cpf = ?";
         params.push(cpf);
     }
