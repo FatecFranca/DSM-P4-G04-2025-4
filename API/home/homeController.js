@@ -40,17 +40,17 @@ router.post("/usuarios", (req, res) => {
 
 // Consultar usuário pelo CPF ou e-mail (login)
 router.get("/usuarios/login", (req, res) => {
-    const { cpf, email } = req.query;
+    const { nome, email } = req.query;
 
-    if (!cpf && !email) {
+    if (!nome && !email) {
         return res.status(400).json({ message: "É necessário informar CPF ou e-mail." });
     }
 
     let query = "SELECT * FROM Usuario WHERE ";
     const params = [];
-    if (cpf) {
-        query += "cpf = ?";
-        params.push(cpf);
+    if (nome) {
+        query += "nome = ?";
+        params.push(nome);
     }
     if (email) {
         if (params.length > 0) query += " OR ";
