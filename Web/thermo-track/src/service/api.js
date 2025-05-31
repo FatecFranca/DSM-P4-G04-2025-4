@@ -1,7 +1,7 @@
 import axios from 'axios';
 
 // URL base da API
-const BASE_URL = process.env.REACT_APP_API_URL || 'http://13.68.97.186:4000/api';
+const BASE_URL = process.env.REACT_APP_API_URL || 'http://13.68.97.186:4000';
 console.log('BASE_URL configurada:', BASE_URL);
 
 // Cria uma instância do axios com a URL base
@@ -22,9 +22,8 @@ api.interceptors.request.use(
     if (user) {
       try {
         const parsedUser = JSON.parse(user);
-        if (parsedUser.token) {
-          config.headers['Authorization'] = `Bearer ${parsedUser.token}`;
-          console.log('Token adicionado à requisição');
+        if (parsedUser.id) {
+          config.headers['Usuario-Id'] = parsedUser.id;
         }
       } catch (error) {
         console.error('Erro ao parsear usuário:', error);
@@ -49,7 +48,6 @@ api.interceptors.response.use(
     if (error.response) {
       console.error('Dados do erro:', error.response.data);
       console.error('Status do erro:', error.response.status);
-      
       if (error.response.status === 401) {
         console.log('Sessão expirada. Fazendo logout.');
         localStorage.removeItem('user');
@@ -68,14 +66,80 @@ api.interceptors.response.use(
 // Métodos de Usuário
 export const loginUser = async (cpf, senha) => {
   try {
-    const response = await api.post('/usuarios/login', { cpf, senha });
+    console.log('Iniciando login - CPF:', cpf);
+    
+    // Log detalhado de tentativa de login
+    console.log('Tentativa de login:', { 
+      cpf, 
+      senhaLength: senha.length 
+    });
+
+    const response = await api.get('/usuarios/login', {
+      params: { cpf: cpf }
+    });
+
+    // Log da resposta completa
+    console.log('Resposta completa do login:', response);
+    
+    // Log dos dados recebidos
+    console.log('Dados do usuário recebidos:', response.data);
+
+    // Verificações detalhadas
+    if (!response.data) {
+      console.error('Nenhum usuário encontrado para o CPF');
+      throw new Error('Usuário não encontrado');
+    }
+
+    // Verificação de senha com logs detalhados
+    console.log('Comparação de senhas:', {
+      senhaRecebida: response.data.senha,
+      senhaEnviada: senha
+    });
+
+    if (response.data.senha !== senha) {
+      console.error('Senha não confere');
+      throw new Error('Credenciais inválidas');
+    }
+
     return response.data;
   } catch (error) {
-    console.error('Erro de login:', error);
-    throw error;
+    // Log detalhado do erro
+    console.error('Erro completo de login:', {
+      message: error.message,
+      name: error.name,
+      stack: error.stack,
+      response: error.response
+    });
+
+    // Tratamento específico de erros
+    if (error.response) {
+      console.error('Detalhes da resposta de erro:', {
+        data: error.response.data,
+        status: error.response.status,
+        headers: error.response.headers
+      });
+
+      switch (error.response.status) {
+        case 404:
+          throw new Error('Usuário não encontrado');
+        case 401:
+          throw new Error('Credenciais inválidas');
+        default:
+          throw new Error('Erro no login');
+      }
+    }
+
+    // Propaga erros específicos de credenciais
+    if (error.message === 'Credenciais inválidas' ||
+        error.message === 'Usuário não encontrado') {
+      throw error;
+    }
+
+    throw new Error('Erro de conexão');
   }
 };
 
+// Restante dos métodos permanece igual
 export const cadastrarUsuario = async (nome, cpf, email, senha) => {
   try {
     const response = await api.post('/usuarios', { nome, cpf, email, senha });

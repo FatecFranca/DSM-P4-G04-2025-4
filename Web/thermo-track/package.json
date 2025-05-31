@@ -2,7 +2,7 @@
   "name": "thermo-track",
   "version": "1.0.0",
   "private": true,
-  "proxy": "http://13.68.97.186:4000/api",
+  "proxy": "http://13.68.97.186:4000",
   "dependencies": {
     "@hookform/resolvers": "^2.9.10",
     "@testing-library/jest-dom": "^5.16.5",

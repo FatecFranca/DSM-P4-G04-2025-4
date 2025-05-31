@@ -5,8 +5,18 @@ import { useAuth } from '../contexts/AuthContext';
 import theme from '../styles/theme';
 import iconeUser from '../images/icone_user.png';
 
+// Máscara para CPF
+const formatCPF = (value) => {
+  return value
+    .replace(/\D/g, '')
+    .replace(/(\d{3})(\d)/, '$1.$2')
+    .replace(/(\d{3})(\d)/, '$1.$2')
+    .replace(/(\d{3})(\d{1,2})/, '$1-$2')
+    .replace(/(-\d{2})\d+?$/, '$1');
+};
+
 const Login = () => {
-  const [nome, setNome] = useState('');
+  const [cpf, setCpf] = useState('');
   const [senha, setSenha] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -15,7 +25,9 @@ const Login = () => {
 
   // Verificação de autenticação ao montar o componente
   useEffect(() => {
+    console.log('Verificando autenticação', { isAuthenticated });
     if (isAuthenticated) {
+      console.log('Usuário já autenticado, navegando para /cad-copo');
       navigate('/cad-copo');
     }
   }, [isAuthenticated, navigate]);
@@ -23,95 +35,147 @@ const Login = () => {
   const handleLogin = async (e) => {
     e.preventDefault();
     
+    // Log detalhado do início do login
+    console.log('Iniciando processo de login', {
+      cpf: cpf,
+      cpfLength: cpf.length,
+      senhaLength: senha.length
+    });
+
     // Limpar erros anteriores
     setError(null);
 
     // Validações de entrada
-    if (!nome.trim()) {
-      setError('Por favor, insira seu nome');
+    const cpfLimpo = cpf.replace(/\D/g, '');
+    
+    console.log('Validações de entrada', {
+      cpfLimpo,
+      cpfLimpoLength: cpfLimpo.length,
+      senhaPreenchida: !!senha.trim()
+    });
+
+    if (!cpfLimpo) {
+      console.warn('CPF não preenchido');
+      setError('Por favor, insira seu CPF');
+      return;
+    }
+
+    if (cpfLimpo.length !== 11) {
+      console.warn('CPF inválido', { cpfLimpo });
+      setError('CPF inválido');
       return;
     }
 
     if (!senha.trim()) {
+      console.warn('Senha não preenchida');
       setError('Por favor, insira sua senha');
+      return;
+    }
+
+    if (senha.length < 4) {
+      console.warn('Senha muito curta', { senhaLength: senha.length });
+      setError('Senha deve ter pelo menos 4 caracteres');
       return;
     }
 
     setLoading(true);
 
     try {
-      const success = await login(nome, senha);
+      console.log('Tentando realizar login');
       
-      if (success) {
-        // Navegação após login bem-sucedido
-        navigate('/cad-copo');
-      } else {
-        setError('Usuário ou senha incorretos');
-      }
+      await login(cpfLimpo, senha);
+      
+      console.log('Login realizado com sucesso');
+      // Navegação já tratada no contexto de autenticação
     } catch (error) {
-      console.error('Erro durante o login:', error);
-      
-      // Mensagens de erro mais específicas
-      if (error.response) {
-        switch (error.response.status) {
-          case 401:
-            setError('Credenciais inválidas');
-            break;
-          case 404:
-            setError('Usuário não encontrado');
-            break;
-          case 500:
-            setError('Erro interno do servidor. Tente novamente mais tarde.');
-            break;
-          default:
-            setError('Erro ao fazer login. Verifique sua conexão.');
-        }
-      } else if (error.message) {
-        setError(error.message);
-      } else {
-        setError('Erro ao fazer login. Verifique sua conexão.');
+      // Log detalhado do erro
+      console.error('Erro completo durante o login:', {
+        message: error.message,
+        name: error.name,
+        stack: error.stack
+      });
+
+      // Tratamento de erros mais direto
+      switch (error.message) {
+        case 'Usuário ou senha incorretos':
+          console.warn('Credenciais incorretas');
+          setError('CPF ou senha incorretos');
+          break;
+        case 'Usuário não encontrado':
+          console.warn('Usuário não encontrado');
+          setError('Usuário não encontrado');
+          break;
+        case 'CPF inválido':
+          console.warn('CPF inválido no login');
+          setError('Por favor, insira um CPF válido');
+          break;
+        default:
+          console.error('Erro de login não mapeado');
+          setError('Erro ao fazer login. Verifique sua conexão.');
       }
     } finally {
       setLoading(false);
+      console.log('Processo de login finalizado');
     }
   };
 
   const handleCadastro = () => {
+    console.log('Navegando para página de cadastro');
     navigate('/cad-user');
+  };
+
+  const handleCpfChange = (e) => {
+    const valorFormatado = formatCPF(e.target.value);
+    
+    console.log('Alteração de CPF', {
+      valorOriginal: e.target.value,
+      valorFormatado
+    });
+
+    setCpf(valorFormatado);
+    
+    // Limpar erro específico de CPF
+    if (error === 'Por favor, insira seu CPF' || error === 'CPF inválido') {
+      setError(null);
+    }
   };
 
   return (
     <Container>
       <LoginBox>
         <Logo src={iconeUser} alt="Ícone de Usuário" />
-        
-        {error && <ErrorMessage>{error}</ErrorMessage>}
-        
+        {error && (
+          <ErrorMessage>
+            {error}
+          </ErrorMessage>
+        )}
         <Form onSubmit={handleLogin}>
           <Input
             type="text"
-            placeholder="Nome"
-            value={nome}
-            onChange={(e) => {
-              setNome(e.target.value);
-              // Limpar erro específico de nome
-              if (error === 'Por favor, insira seu nome') {
-                setError(null);
-              }
-            }}
+            placeholder="CPF"
+            value={cpf}
+            onChange={handleCpfChange}
+            maxLength="14"
             disabled={loading}
             required
             autoComplete="username"
           />
-          
           <Input
             type="password"
             placeholder="Senha"
             value={senha}
             onChange={(e) => {
+              console.log('Alteração de senha', { 
+                senhaLength: e.target.value.length 
+              });
+              
               setSenha(e.target.value);
+              
               // Limpar erro específico de senha
-              if (error === 'Por favor, insira sua senha') {
+              if (
+                error === 'Por favor, insira sua senha' ||
+                error === 'Senha deve ter pelo menos 4 caracteres'
+              ) {
                 setError(null);
               }
             }}
@@ -119,7 +183,6 @@ const Login = () => {
             required
             autoComplete="current-password"
           />
-          
           <ButtonGroup>
             <Button
               type="submit"
@@ -127,7 +190,6 @@ const Login = () => {
             >
               {loading ? 'Entrando...' : 'Entrar'}
             </Button>
-            
             <Button
               type="button"
               onClick={handleCadastro}
@@ -137,9 +199,9 @@ const Login = () => {
             </Button>
           </ButtonGroup>
         </Form>
-        
-        <ForgotPasswordLink 
+        <ForgotPasswordLink
           onClick={() => {
+            console.log('Clique em recuperação de senha');
             // Implementar lógica de recuperação de senha
             alert('Funcionalidade de recuperação de senha em desenvolvimento');
           }}
@@ -151,7 +213,8 @@ const Login = () => {
   );
 };
 
-// Componentes de estilo
+
+// Componentes de estilo (mantidos inalterados)
 const ErrorMessage = styled.div`
   background-color: #ff4d4f;
   color: white;

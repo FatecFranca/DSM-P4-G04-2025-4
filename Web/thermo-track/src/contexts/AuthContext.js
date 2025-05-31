@@ -1,6 +1,6 @@
 import React, { createContext, useState, useContext, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import api from '../service/api';
+import { loginUser } from '../service/api';
 
 const AuthContext = createContext({});
 
@@ -10,106 +10,154 @@ export const AuthProvider = ({ children }) => {
   const navigate = useNavigate();
 
   useEffect(() => {
+    console.log('Iniciando verificação de usuário armazenado');
     const storedUser = localStorage.getItem('user');
+    
     try {
       if (storedUser) {
+        console.log('Usuário armazenado encontrado');
         const parsedUser = JSON.parse(storedUser);
-        // Validação adicional do usuário armazenado
-        if (parsedUser && parsedUser.nome) {
+        
+        console.log('Dados do usuário armazenado:', {
+          temId: !!parsedUser.id,
+          propriedades: Object.keys(parsedUser)
+        });
+
+        if (parsedUser && parsedUser.id) {
           setUser(parsedUser);
+          console.log('Usuário definido no contexto');
         } else {
-          // Limpar localStorage se o usuário estiver inválido
+          console.warn('Usuário armazenado inválido');
           localStorage.removeItem('user');
+          setUser(null);
         }
+      } else {
+        console.log('Nenhum usuário armazenado');
       }
     } catch (error) {
-      console.error('Erro ao parsear usuário armazenado:', error);
+      console.error('Erro detalhado ao parsear usuário:', {
+        message: error.message,
+        stack: error.stack,
+        storedUserString: storedUser
+      });
+      
       localStorage.removeItem('user');
+      setUser(null);
     } finally {
       setLoading(false);
+      console.log('Verificação de usuário concluída');
     }
   }, []);
 
-  const login = async (nome, senha) => {
-    // Validações de entrada
-    if (!nome || !senha) {
-      console.error('Nome e senha são obrigatórios');
-      return false;
-    }
+  const login = async (cpf, senha) => {
+  console.log('Iniciando login de usuário', { 
+    cpf, 
+    senhaLength: senha.length 
+  });
 
-    try {
-      setLoading(true);
+  // Validações de entrada
+  const cpfLimpo = cpf.replace(/\D/g, '');
+  
+  console.log('Validações de entrada', {
+    cpfLimpo,
+    cpfLimpoLength: cpfLimpo.length,
+    senhaPreenchida: !!senha.trim()
+  });
+
+  if (!cpfLimpo || cpfLimpo.length !== 11) {
+    console.warn('CPF inválido', { cpfLimpo });
+    throw new Error('CPF inválido');
+  }
+
+  if (!senha.trim()) {
+    console.warn('Senha não preenchida');
+    throw new Error('Senha é obrigatória');
+  }
+
+  try {
+    setLoading(true);
+    console.log('Tentando login de usuário');
+    
+    const usuario = await loginUser(cpfLimpo, senha);
+    
+    console.log('Retorno do login:', {
+      usuarioRecebido: !!usuario,
+      propriedades: usuario ? Object.keys(usuario) : 'Sem usuário'
+    });
+
+    localStorage.setItem('user', JSON.stringify(usuario));
+    setUser(usuario);
+    
+    console.log('Login realizado com sucesso');
+    
+    // Navega após login bem-sucedido
+    navigate('/cad-copo');
+    
+    return true;
+  } catch (error) {
+    // Log detalhado de erro
+    console.error('Erro completo no login:', {
+      message: error.message,
+      name: error.name,
+      stack: error.stack
+    });
+
+    // Mapeamento de erros mais específico
+    switch (error.message) {
+      case 'Credenciais inválidas':
+        console.warn('Credenciais inválidas');
+        throw new Error('Usuário ou senha incorretos');
       
-      // Alterado para '/usuarios/login'
-      const response = await api.post('/usuarios', { nome, senha });
-      console.log('Resposta do login:', response.data);
+      case 'Usuário não encontrado':
+        console.warn('Usuário não encontrado');
+        throw new Error('Usuário não encontrado');
       
-      // Verificar se a resposta contém dados de usuário
-      if (response.data && response.data.nome) {
-        // Remover campos sensíveis antes de armazenar
-        const { senha: _, ...usuarioSeguro } = response.data;
-        
-        localStorage.setItem('user', JSON.stringify(usuarioSeguro));
-        setUser(usuarioSeguro);
-        return true;
-      } else {
-        console.log('Usuário não encontrado ou credenciais inválidas');
-        return false;
-      }
-    } catch (error) {
-      console.error('Erro no login:', error);
+      case 'CPF inválido':
+        console.warn('CPF inválido no login');
+        throw new Error('Por favor, insira um CPF válido');
       
-      // Tratamento de diferentes tipos de erros
-      if (error.response) {
-        // Erro de resposta do servidor
-        console.error('Erro de resposta:', error.response.data);
-        
-        // Adicionar tratamento específico de erros
-        switch (error.response.status) {
-          case 401:
-            console.error('Credenciais inválidas');
-            break;
-          case 404:
-            console.error('Usuário não encontrado');
-            break;
-          case 500:
-            console.error('Erro interno do servidor');
-            break;
-          default:
-            console.error('Erro desconhecido');
-        }
-      } else if (error.request) {
-        // Erro de requisição
-        console.error('Sem resposta do servidor');
-      } else {
-        // Erro de configuração
-        console.error('Erro ao configurar a requisição');
-      }
-      
-      throw error;
-    } finally {
-      setLoading(false);
+      default:
+        console.error('Erro de login não mapeado');
+        throw new Error('Erro ao fazer login');
     }
-  };
+  } finally {
+    setLoading(false);
+    console.log('Processo de login finalizado');
+  }
+};
+
 
   const logout = () => {
+    console.log('Realizando logout');
     setUser(null);
     localStorage.removeItem('user');
     navigate('/login');
   };
 
-  // Método de autenticação mais seguro
   const isAuthenticated = () => {
-    // Verificação adicional de validade do usuário
+    console.log('Verificando autenticação');
     const storedUser = localStorage.getItem('user');
+    
     if (!storedUser) {
+      console.log('Sem usuário armazenado');
       return false;
     }
+    
     try {
       const parsedUser = JSON.parse(storedUser);
-      return !!(parsedUser && parsedUser.nome);
+      
+      console.log('Verificação de autenticação', {
+        temId: !!parsedUser.id,
+        propriedades: Object.keys(parsedUser)
+      });
+
+      return !!(parsedUser && parsedUser.id);
     } catch (error) {
-      console.error('Erro ao verificar autenticação:', error);
+      console.error('Erro ao verificar autenticação:', {
+        message: error.message,
+        storedUser
+      });
+      
       localStorage.removeItem('user');
       return false;
     }
