@@ -43,15 +43,17 @@ router.get("/usuarios/login", (req, res) => {
     const { cpf, email } = req.query;
 
     if (!cpf && !email) {
-        return res.status(400).json({ message: "É necessário informar CPF ou e-mail." });
+        return res.status(400).json({ message: "CPF ou e-mail é obrigatório" });
     }
 
     let query = "SELECT * FROM Usuario WHERE ";
     const params = [];
+    
     if (cpf) {
         query += "cpf = ?";
         params.push(cpf);
     }
+    
     if (email) {
         if (params.length > 0) query += " OR ";
         query += "email = ?";
@@ -59,10 +61,17 @@ router.get("/usuarios/login", (req, res) => {
     }
 
     connection.query(query, params, (err, results) => {
-        if (err) return res.status(500).json({ error: err });
-        if (results.length === 0) return res.status(404).json({ message: "Usuário não encontrado." });
+        if (err) {
+            console.error('Erro na consulta:', err);
+            return res.status(500).json({ error: "Erro interno do servidor" });
+        }
+        
+        if (results.length === 0) {
+            return res.status(404).json({ message: "Usuário não encontrado" });
+        }
+
         const user = results[0];
-        delete user.senha;
+        // IMPORTANTE: Retornar a senha para validação
         res.json(user);
     });
 });

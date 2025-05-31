@@ -9,23 +9,24 @@ export const AuthProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
 
+  // Verificação de usuário armazenado ao iniciar
   useEffect(() => {
     console.log('Iniciando verificação de usuário armazenado');
     const storedUser = localStorage.getItem('user');
     
     try {
       if (storedUser) {
-        console.log('Usuário armazenado encontrado');
         const parsedUser = JSON.parse(storedUser);
         
-        console.log('Dados do usuário armazenado:', {
-          temId: !!parsedUser.id,
-          propriedades: Object.keys(parsedUser)
-        });
-
-        if (parsedUser && parsedUser.id) {
+        // Verificação de expiração do token
+        const now = new Date().getTime();
+        if (parsedUser.tokenExpiration && now > parsedUser.tokenExpiration) {
+          console.warn('Token expirado');
+          localStorage.removeItem('user');
+          setUser(null);
+        } else if (parsedUser && parsedUser.id) {
           setUser(parsedUser);
-          console.log('Usuário definido no contexto');
+          console.log('Usuário autenticado recuperado');
         } else {
           console.warn('Usuário armazenado inválido');
           localStorage.removeItem('user');
@@ -35,10 +36,9 @@ export const AuthProvider = ({ children }) => {
         console.log('Nenhum usuário armazenado');
       }
     } catch (error) {
-      console.error('Erro detalhado ao parsear usuário:', {
+      console.error('Erro ao verificar usuário armazenado:', {
         message: error.message,
-        stack: error.stack,
-        storedUserString: storedUser
+        stack: error.stack
       });
       
       localStorage.removeItem('user');
@@ -49,84 +49,74 @@ export const AuthProvider = ({ children }) => {
     }
   }, []);
 
+  // Método de login
   const login = async (cpf, senha) => {
-  console.log('Iniciando login de usuário', { 
-    cpf, 
-    senhaLength: senha.length 
-  });
+    console.log('Iniciando login de usuário', { cpf });
 
-  // Validações de entrada
-  const cpfLimpo = cpf.replace(/\D/g, '');
-  
-  console.log('Validações de entrada', {
-    cpfLimpo,
-    cpfLimpoLength: cpfLimpo.length,
-    senhaPreenchida: !!senha.trim()
-  });
-
-  if (!cpfLimpo || cpfLimpo.length !== 11) {
-    console.warn('CPF inválido', { cpfLimpo });
-    throw new Error('CPF inválido');
-  }
-
-  if (!senha.trim()) {
-    console.warn('Senha não preenchida');
-    throw new Error('Senha é obrigatória');
-  }
-
-  try {
-    setLoading(true);
-    console.log('Tentando login de usuário');
-    
-    const usuario = await loginUser(cpfLimpo, senha);
-    
-    console.log('Retorno do login:', {
-      usuarioRecebido: !!usuario,
-      propriedades: usuario ? Object.keys(usuario) : 'Sem usuário'
-    });
-
-    localStorage.setItem('user', JSON.stringify(usuario));
-    setUser(usuario);
-    
-    console.log('Login realizado com sucesso');
-    
-    // Navega após login bem-sucedido
-    navigate('/cad-copo');
-    
-    return true;
-  } catch (error) {
-    // Log detalhado de erro
-    console.error('Erro completo no login:', {
-      message: error.message,
-      name: error.name,
-      stack: error.stack
-    });
-
-    // Mapeamento de erros mais específico
-    switch (error.message) {
-      case 'Credenciais inválidas':
-        console.warn('Credenciais inválidas');
-        throw new Error('Usuário ou senha incorretos');
-      
-      case 'Usuário não encontrado':
-        console.warn('Usuário não encontrado');
-        throw new Error('Usuário não encontrado');
-      
-      case 'CPF inválido':
-        console.warn('CPF inválido no login');
-        throw new Error('Por favor, insira um CPF válido');
-      
-      default:
-        console.error('Erro de login não mapeado');
-        throw new Error('Erro ao fazer login');
+    // Limpeza e validação de CPF
+    const cpfLimpo = cpf.replace(/\D/g, '');
+   
+    if (!cpfLimpo || cpfLimpo.length !== 11) {
+      console.warn('CPF inválido', { cpfLimpo });
+      throw new Error('CPF inválido');
     }
-  } finally {
-    setLoading(false);
-    console.log('Processo de login finalizado');
-  }
-};
 
+    if (!senha.trim()) {
+      console.warn('Senha não preenchida');
+      throw new Error('Senha é obrigatória');
+    }
 
+    try {
+      setLoading(true);
+      console.log('Tentando login de usuário');
+      
+      const usuario = await loginUser(cpfLimpo, senha);
+      
+      // Validação adicional de retorno
+      if (!usuario || !usuario.id) {
+        throw new Error('Dados de usuário inválidos');
+      }
+
+      // Adicionar timestamp de expiração (24 horas)
+      const userWithExpiration = {
+        ...usuario,
+        tokenExpiration: new Date().getTime() + (24 * 60 * 60 * 1000)
+      };
+
+      // Armazenar usuário
+      localStorage.setItem('user', JSON.stringify(userWithExpiration));
+      setUser(userWithExpiration);
+      
+      console.log('Login realizado com sucesso');
+      
+      // Navegar após login
+      navigate('/cad-copo');
+      
+      return true;
+    } catch (error) {
+      // Log detalhado de erro
+      console.error('Erro completo no login:', {
+        message: error.message,
+        name: error.name,
+        stack: error.stack
+      });
+
+      // Mapeamento de erros
+      const errorMap = {
+        'Credenciais inválidas': 'Usuário ou senha incorretos',
+        'Usuário não encontrado': 'Usuário não encontrado',
+        'CPF inválido': 'Por favor, insira um CPF válido',
+      };
+
+      const mappedErrorMessage = errorMap[error.message] || 'Erro ao fazer login';
+      throw new Error(mappedErrorMessage);
+    } finally {
+      setLoading(false);
+      console.log('Processo de login finalizado');
+    }
+  };
+
+  // Método de logout
   const logout = () => {
     console.log('Realizando logout');
     setUser(null);
@@ -134,42 +124,43 @@ export const AuthProvider = ({ children }) => {
     navigate('/login');
   };
 
-  const isAuthenticated = () => {
-    console.log('Verificando autenticação');
-    const storedUser = localStorage.getItem('user');
-    
-    if (!storedUser) {
-      console.log('Sem usuário armazenado');
-      return false;
-    }
-    
+  // Método de refresh de token (opcional)
+  const refreshToken = async () => {
     try {
-      const parsedUser = JSON.parse(storedUser);
-      
-      console.log('Verificação de autenticação', {
-        temId: !!parsedUser.id,
-        propriedades: Object.keys(parsedUser)
-      });
+      // Verificar se há um usuário logado
+      if (!user) return false;
 
-      return !!(parsedUser && parsedUser.id);
-    } catch (error) {
-      console.error('Erro ao verificar autenticação:', {
-        message: error.message,
-        storedUser
-      });
+      // Lógica para obter novo token 
+      // NOTA: Implemente a chamada real à API de refresh
+      // const newToken = await api.refreshToken(user.refreshToken);
       
-      localStorage.removeItem('user');
+      const now = new Date().getTime();
+      const updatedUser = { 
+        ...user, 
+        // token: newToken, // Descomentar quando implementar
+        tokenExpiration: now + (24 * 60 * 60 * 1000)
+      };
+
+      localStorage.setItem('user', JSON.stringify(updatedUser));
+      setUser(updatedUser);
+
+      return true;
+    } catch (error) {
+      console.error('Erro ao atualizar token:', error);
+      logout(); // Fazer logout em caso de erro
       return false;
     }
   };
 
+  // Provedor de contexto
   return (
     <AuthContext.Provider
       value={{
         user,
         login,
         logout,
-        isAuthenticated: isAuthenticated(),
+        refreshToken,
+        isAuthenticated: !!user, // Conversão para booleano
         loading
       }}
     >
@@ -178,11 +169,14 @@ export const AuthProvider = ({ children }) => {
   );
 };
 
+// Hook personalizado para uso do contexto
 export const useAuth = () => {
   const context = useContext(AuthContext);
+  
   if (!context) {
-    throw new Error('useAuth must be used within an AuthProvider');
+    throw new Error('useAuth deve ser usado dentro de um AuthProvider');
   }
+  
   return context;
 };
 
