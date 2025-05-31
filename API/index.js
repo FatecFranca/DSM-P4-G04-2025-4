@@ -27,7 +27,7 @@ const corsOptions = {
             'http://localhost:8081',
             'http://13.68.97.186:3000',
             'http://13.68.97.186',
-            'http://192.168.58.76:8000',
+            'http://192.168.58.76:8080',
             /^http:\/\/localhost:\d+$/,
             '*'
         ];
