@@ -7,12 +7,7 @@ const bodyParser = require('body-parser');
 const porta = 4000;
 
 
-app.use(cors({
-  origin: 'http://localhost:3000', // Só este domínio: trocar pelo seu em produção!
-  methods: ['GET', 'POST', 'PUT', 'DELETE'],
-  allowedHeaders: ['Content-Type', 'Authorization'], // ou outros headers que sua API precisar
-  credentials: true
-}));
+app.use(cors({}));
 
 // engine vai ser ejs
 app.set("view engine", "ejs");
