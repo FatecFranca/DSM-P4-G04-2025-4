@@ -2,29 +2,10 @@ const express = require("express");
 const router = express.Router();
 const connection = require("../database/connection");
 const axios = require('axios');
-const bcrypt = require('bcrypt');
-const jwt = require('jsonwebtoken');
-
-// Chave secreta para JWT (use uma variável de ambiente em produção)
-const JWT_SECRET = process.env.JWT_SECRET || 'sua_chave_secreta_aqui';
-
-// Middleware de autenticação
-const authenticateToken = (req, res, next) => {
-    const authHeader = req.headers['authorization'];
-    const token = authHeader && authHeader.split(' ')[1];
-
-    if (token == null) return res.sendStatus(401);
-
-    jwt.verify(token, JWT_SECRET, (err, user) => {
-        if (err) return res.sendStatus(403);
-        req.user = user;
-        next();
-    });
-};
 
 // Página inicial
 router.get("/", (req, res) => {
-    res.json({ message: "API ThermoTrack funcionando", status: "online" });
+    res.render("index");
 });
 
 /* ===================== ROTAS DE USUÁRIO ===================== */
