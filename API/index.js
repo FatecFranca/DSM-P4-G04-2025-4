@@ -5,9 +5,9 @@ const connection = require("./database/connection");
 const homeController = require("./home/homeController");
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
-
+const porta = 4000;
 const app = Express();
-const porta = process.env.PORT || 4000;
+
 
 // Configuração de segurança
 app.use(helmet());
