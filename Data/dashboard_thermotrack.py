@@ -1,5 +1,7 @@
 import streamlit as st
 import pandas as pd
+import os
+import mysql.connector
 import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
@@ -8,8 +10,6 @@ from scipy.optimize import curve_fit
 
 # --- Configurações Iniciais do Streamlit ---
 st.set_page_config(layout="wide", page_title="ThermoTrack Dashboard Avançado")
-# A linha abaixo não é mais necessária ou foi substituída, remover se causar erro
-# st.set_option('deprecation.showPyplotGlobalUse', False)
 
 # --- Funções de Modelagem e Cálculo ---
 
@@ -166,33 +166,52 @@ def plotar_heatmap_correlacao(df_corr):
     st.pyplot(plt.gcf())
     plt.clf()
 
+# --- Função para Conectar ao Banco de Dados ---
+def get_db_connection():
+    try:
+        conn = mysql.connector.connect(
+            host=os.environ.get('DB_HOST_DASHBOARD', 'localhost'), # Pega do ambiente ou usa 'localhost'
+            user=os.environ.get('DB_USER_DASHBOARD', 'seu_usuario_bd'),
+            password=os.environ.get('DB_PASSWORD_DASHBOARD', 'sua_senha_bd'),
+            database=os.environ.get('DB_NAME_DASHBOARD', 'thermotrack_db')
+        )
+        return conn
+    except mysql.connector.Error as err:
+        st.error(f"Erro ao conectar ao banco de dados: {err}")
+        return None
+
+# --- Função para Carregar Dados do Banco ---
+def carregar_dados_do_banco():
+    conn = get_db_connection()
+    if conn:
+        try:
+            # Adapte esta query para sua estrutura de tabelas e colunas!
+            query = "SELECT Copo, Teste, Bebida, T0, T10, T20, T30, T40, T50, T60 FROM sua_tabela_de_medicoes"
+            df = pd.read_sql(query, conn)
+            conn.close()
+            return df
+        except Exception as e:
+            st.error(f"Erro ao executar a query no banco: {e}")
+            return pd.DataFrame() # Retorna DataFrame vazio em caso de erro
+    return pd.DataFrame()
+
 # --- Interface do Streamlit ---
 st.title("🌡️ ThermoTrack - Dashboard de Análise Detalhada")
+t_ambiente= 25.0
 
+# --- Funçao para carregamento de arquivos CSV local ---
 # Sidebar para configurações e upload
-st.sidebar.header("Configurações e Upload")
-uploaded_file = st.sidebar.file_uploader("Carregue seu arquivo CSV", type=["csv"])
-t_ambiente_default = 25.0
-t_ambiente = st.sidebar.number_input("Temperatura Ambiente (°C)", value=t_ambiente_default, format="%.1f")
+# st.sidebar.header("Configurações e Upload")
+# uploaded_file = st.sidebar.file_uploader("Carregue seu arquivo CSV", type=["csv"])
+# t_ambiente = st.sidebar.number_input("Temperatura Ambiente (°C)", value=t_ambiente_default, format="%.1f")
+
 
 # Carregar dados
-df_original = None
-if uploaded_file is not None:
-    try:
-        df_original = pd.read_csv(uploaded_file)
-    except Exception as e:
-        st.sidebar.error(f"Erro ao carregar o arquivo: {e}")
-else:
-    try:
-        df_original = pd.read_csv("copos_termicos.csv") # Usar dados de exemplo se nenhum arquivo for carregado
-        if uploaded_file is None:
-             st.sidebar.info("Nenhum arquivo carregado. Usando dados de exemplo.")
-    except FileNotFoundError:
-        if uploaded_file is None: # Só mostrar erro se o usuário não tentou carregar nada
-            st.sidebar.error("Arquivo de exemplo 'copos_termicos.csv' não encontrado. Por favor, carregue um arquivo.")
-    except Exception as e:
-        st.sidebar.error(f"Erro ao carregar dados de exemplo: {e}")
-
+df_original = carregar_dados_do_banco()
+if df_original.empty and not any(st.session_state.get(key, {}).get('type') == 'error' for key in st.session_state): # Evitar múltiplas msgs de erro
+    st.warning("Nenhum dado foi carregado do banco de dados. Verifique a conexão e se há dados na tabela.")
+elif not df_original.empty:
+    st.success("Dados carregados do banco com sucesso!")
 
 if df_original is not None:
     # Validar colunas básicas
