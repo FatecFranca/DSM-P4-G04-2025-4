@@ -30,7 +30,8 @@ $$
 
 Essa projeção aparece na coluna `Tempo_1Grau`. O ajuste exponencial descreve bem o isolamento térmico: copos com menor $k$ (ex. Stanley) demoram muito mais para igualar 25 °C. Abaixo mostramos um gráfico de dispersão que ilustra a correlação entre a temperatura inicial e o tempo estimado para atingir 25 °C; nota-se correlação positiva (quanto maior $T_0$, maior o tempo).
 
-    **![GRÁFICO EXEMPLO]**
+![URL_da_Imagem](https://github.com/FatecFranca/DSM-P4-G04-2025-4/blob/main/Data/imagens/Code_Generated_Image%20(1).png)
+**Imagem ilustrativa**
 
 ### Análise de Distribuições
 
@@ -49,10 +50,6 @@ _, p_tempo = shapiro(df['Tempo_1Grau'])
 print(f'P-valor Shapiro T0: {p_T0:.3f}, Tempo_1Grau: {p_tempo:.3f}')
 ```
 
-O histograma abaixo exibe as distribuições do tempo estimado até 25°C por copo. Nota-se que o *Stanley* (laranja) tem tempos muito maiores (indica melhor isolamento), enquanto as réplicas (rosa e azul claro) têm tempos bem menores.
-
-    **[HISTOGRAMA]**
-
 ### Correlação e Regressão
 
 Além do modelo exponencial, exploramos correlações lineares. Por exemplo, calculamos a correlação de Pearson entre a temperatura inicial `T0` e `Tempo_1Grau`:
@@ -64,7 +61,8 @@ print(f'Correlação Pearson: r = {corr:.3f}, p = {pval:.3f}')
 
 Encontramos correlação moderada positiva (ex.: r≈0.36, p<0.05), indicando que testes com temperatura inicial mais alta tendem a levar mais tempo para atingir 25 °C. Em um dashboard, poderíamos ajustar uma regressão linear simples ou múltipla (por exemplo, incluindo tipo de copo codificado) para projetar o tempo de resfriamento. A figura de dispersão abaixo ilustra essa relação para bebidas quentes (marcador laranja) e frias (vermelho).
 
-    **[FIGURA]**
+![URL_da_Imagem](https://github.com/FatecFranca/DSM-P4-G04-2025-4/blob/main/Data/imagens/Code_Generated_Image.png)
+**Imagem ilustrativa**
 
 ## Intervalos de Confiança
 
@@ -82,6 +80,9 @@ print(f'Média T120 (Stanley quente): {media:.1f}°C, IC95% = ({ci[0]:.1f}, {ci[
 
 Isso produz um intervalo de confiança que quantifica a incerteza na média (pode ser aplicado a qualquer grupo ou métrica como `Tempo_1Grau`).
 
+![URL_da_Imagem](https://github.com/FatecFranca/DSM-P4-G04-2025-4/blob/main/Data/imagens/Code_Generated_Image%20(3).png)
+**Imagem ilustrativa**
+
 ### Testes de Hipótese
 
 Para comparar o desempenho de copos (p.ex. Stanley vs Réplicas), usamos testes de hipótese. Por exemplo, um teste t de duas amostras independente na temperatura final `T120` dos testes quentes:
@@ -94,4 +95,7 @@ print(f'T-Test (Stanley vs Réplica A, T120): t={tstat:.2f}, p={pval:.3e}')
 
 Obtém-se p≈0 (p<0.001), indicando diferença estatisticamente significativa: o *Stanley* mantém muito mais calor que a *Réplica*. Testes ANOVA ou múltiplos testes t (com correção) podem ser aplicados para comparar vários grupos (e.g., Stanley vs Concorrentes vs Réplicas). Também é possível usar testes não-paramétricos (ex.: Wilcoxon, se a normalidade não se mantiver). Essas análises validam hipóteses como “há diferença de desempenho entre Stanley e genéricos”.
 
-    **[DASHBOARD]**
+### Projeção do coeficiente k médio
+
+![URL_da_Imagem](https://github.com/FatecFranca/DSM-P4-G04-2025-4/blob/main/Data/imagens/Code_Generated_Image%20(2).png)
+**Imagem ilustrativa**
