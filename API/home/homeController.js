@@ -267,28 +267,24 @@ router.delete("/testes/:teste_id", (req, res) => {
 O IoT é quem fará as medições e devolverá t0, t10...t120 e k posteriormente.
 */
 router.post('/testes', async (req, res) => {
-    const { usuario_id, copos, tipo } = req.body; // Copos = array de ids
+    const { usuario_id, copos, tipo } = req.body;
 
     if (!usuario_id || !Array.isArray(copos) || copos.length === 0 || !tipo) {
         return res.status(400).json({ message: 'Usuário, copos e tipo são obrigatórios.' });
     }
 
-    // Aqui aciona o ESP32/IOT para iniciar a coleta (por ex. via HTTP)
     try {
-        // Exemplo: (ajuste o endpoint e payload conforme necessário)
-        await axios.post('http://<ip_do_esp32>/iniciarTeste', {
-            usuario_id, copos, tipo
-        });
-        return res.json({ message: 'Solicitação enviada ao IoT, teste em andamento...' });
+        await axios.post('http://192.168.115.188/iniciarTeste', { usuario_id, copos, tipo });
+        return res.json({ message: 'Teste iniciado no ESP32!' });
     } catch (err) {
-        return res.status(500).json({ message: 'Falha ao comunicar com o ESP32/IoT.' });
+        return res.status(500).json({ message: 'Erro ao comunicar com o ESP32.', erro: err.message });
     }
 });
 
 // Função auxiliar para envio ao ESP32 (road test)
 async function iniciarTesteESP32(usuario_id, copos, tipo, test_ids) {
     try {
-        await axios.post('http://<ip_do_esp32>/iniciarTeste', {
+        await axios.post('http://192.168.115.188/iniciarTeste', {
             usuario_id, copos, tipo, test_ids
         });
         return { success: true };
