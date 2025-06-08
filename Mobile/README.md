@@ -51,6 +51,8 @@ Os dados de temperatura são coletados automaticamente e enviados para a aplica�
 
 Obs:A aplicação depende de uma API privada que conecta ao banco de dados. Essa API deve estar devidamente inicializada e funcionando para que o aplicativo opere normalmente.
 
+---
+
 # Prints da aplicação
 
  <img src="https://github.com/user-attachments/assets/fc6fd706-3273-44ff-8aca-e715860a1163" width="300" /> <img src="https://github.com/user-attachments/assets/ac6c93c8-2bf8-4579-b496-3282d1f223b8" width="300" /> <img src="https://github.com/user-attachments/assets/9417c9ba-341e-42c4-ba6c-0f69a6aecbc4" width="300" /> <img src="https://github.com/user-attachments/assets/bbae5e5e-20fe-464b-8d8f-895d1f141d5f" width="300" /> <img src="https://github.com/user-attachments/assets/93eedfc5-f27d-4e02-bb95-5316b06ba2d4" width="300" /> <img src="https://github.com/user-attachments/assets/d6d616cf-4c05-4c76-83ae-a3811b702ae7" width="300" />
