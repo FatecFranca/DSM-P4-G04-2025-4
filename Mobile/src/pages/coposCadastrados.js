@@ -1,187 +1,221 @@
-import React, { Component } from "react";
-import { View, Text, FlatList, StyleSheet, Image, TouchableOpacity } from "react-native";
-import AsyncStorage from "@react-native-async-storage/async-storage";
+import React, { useState, useCallback } from 'react';
+import { View, Text, FlatList, StyleSheet, TouchableOpacity, Alert } from 'react-native';
+import { useNavigation, useRoute, useFocusEffect } from '@react-navigation/native';
+import api from '../services/api';
+import Icon from 'react-native-vector-icons/Feather';
 
-export default class CoposCadastrados extends Component {
-    state = {
-        copos: [],
-    };
+const CoposCadastrados = () => {
+    const navigation = useNavigation();
+    const route = useRoute();
 
-    async componentDidMount() {
+    const { usuarioId, retornandoParaTeste = false, qtdNecessaria = 1, coposSelecionados: coposIniciais = [] } = route.params;
+
+    const [copos, setCopos] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const [selecionados, setSelecionados] = useState([...coposIniciais]);
+
+    const fetchCopos = async () => {
         try {
-            const coposSalvos = await AsyncStorage.getItem("copos");
-            const listaCopos = coposSalvos ? JSON.parse(coposSalvos) : [];
-            this.setState({ copos: listaCopos });
+            setLoading(true);
+            const response = await api.get('/copos');
+            const coposUsuario = response.data.filter(copo => copo.usuario_id === usuarioId);
+            setCopos(coposUsuario);
         } catch (error) {
             console.error("Erro ao buscar copos:", error);
+            Alert.alert("Erro", "Não foi possível carregar os copos.");
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    useFocusEffect(useCallback(() => {
+        fetchCopos();
+    }, [usuarioId]));
+
+    const alternarSelecao = (copo) => {
+        const jaSelecionado = selecionados.find(c => c.id === copo.id);
+
+        if (jaSelecionado) {
+            setSelecionados(selecionados.filter(c => c.id !== copo.id));
+        } else {
+            if (selecionados.length >= qtdNecessaria) {
+                Alert.alert("Limite atingido", `Você só pode selecionar até ${qtdNecessaria} copo(s).`);
+                return;
+            }
+            setSelecionados([...selecionados, copo]);
+        }
+    };
+
+    const confirmarSelecao = () => {
+        if (selecionados.length < qtdNecessaria) {
+            Alert.alert("Seleção incompleta", `Você precisa selecionar ${qtdNecessaria} copo(s).`);
+            return;
         }
 
-
-
-    }
-
-    removerCopo = (index) => {
-        const novosCopos = [...this.state.copos];
-        novosCopos.splice(index, 1);
-        this.setState({ copos: novosCopos });
-        AsyncStorage.setItem("copos", JSON.stringify(novosCopos));
+        navigation.navigate("TesteDeCopos", {
+            usuarioId,
+            coposSelecionados: selecionados,
+            qtdNecessaria,
+            retornandoParaTeste: true,
+        });
     };
 
-    irParaDashboard = () => {
-        this.props.navigation.navigate("Dashboard", { copos: this.state.copos });
+    const excluirCopo = async (id) => {
+        try {
+            await api.delete(`/copos/${id}`);
+            setCopos(copos.filter(copo => copo.id !== id));
+            Alert.alert("Sucesso", "Copo excluído com sucesso.");
+        } catch (error) {
+            console.error("Erro ao excluir copo:", error);
+            Alert.alert("Erro", "Não foi possível excluir o copo.");
+        }
     };
 
+    const renderItem = ({ item }) => {
+        const estaSelecionado = selecionados.some(c => c.id === item.id);
 
-    handleCadastroCop = () => {
-        this.props.navigation.navigate("CadCopo");
-    };
-
-    renderItem = ({ item, index }) => (
-        <View style={styles.item}>
-            <View style={styles.itemContent}>
-                <View style={styles.textContainer}>
-                    <Text style={styles.texto}>{item.marca}</Text>
-                    <Text style={styles.texto}>{item.capacidade} ml</Text>
-                    <Text style={styles.texto}>{item.estado}</Text>
+        return (
+            <TouchableOpacity
+                onPress={() => retornandoParaTeste && alternarSelecao(item)}
+                style={[
+                    styles.card,
+                    retornandoParaTeste && estaSelecionado && styles.copoSelecionado
+                ]}
+                activeOpacity={retornandoParaTeste ? 0.7 : 1}
+            >
+                <View style={styles.headerCard}>
+                    <Text style={styles.nome}>{item.nome}</Text>
+                    <View style={styles.icones}>
+                        <TouchableOpacity style={{ marginRight: 10 }} onPress={() => navigation.navigate("Dashboard", { usuarioId, copoId: item.id })}>
+                            <Icon name="bar-chart-2" size={22} color="white" />
+                        </TouchableOpacity>
+                        <TouchableOpacity style={{ marginRight: 10 }} onPress={() => navigation.navigate("TesteDeCopos", { copoId: item.id, usuarioId })}>
+                            <Icon name="play" size={22} color="#edb11c" />
+                        </TouchableOpacity>
+                        <TouchableOpacity style={{ marginRight: 10 }} onPress={() => navigation.navigate("Ranking", { copoId: item.id, usuarioId })}>
+                            <Icon name="award" size={22} color="white" />
+                        </TouchableOpacity>
+                        <TouchableOpacity style={{ marginRight: 10 }} onPress={() => navigation.navigate("EditarCopo", { copo: item, usuarioId })}>
+                            <Icon name="edit" size={22} color="#edb11c" />
+                        </TouchableOpacity>
+                        <TouchableOpacity onPress={() => excluirCopo(item.id)}>
+                            <Icon name="trash-2" size={22} color="white" />
+                        </TouchableOpacity>
+                    </View>
                 </View>
+                <Text style={styles.info}>Marca: {item.marca}</Text>
+                <Text style={styles.info}>Capacidade: {item.capacidade_ml} ml</Text>
+            </TouchableOpacity>
+        );
+    };
 
+    return (
+        <View style={styles.container}>
+            <Text style={styles.titulo}>Copos Cadastrados_</Text>
 
-                <TouchableOpacity
-                    style={styles.button_item}
-                    onPress={() => this.removerCopo(index)}
-                >
-                    <Text style={styles.buttonText}>X</Text>
-                </TouchableOpacity>
-
+            <View style={styles.scrollContainer}>
+                {loading ? (
+                    <Text style={styles.loading}>Carregando...</Text>
+                ) : copos.length > 0 ? (
+                    <FlatList
+                        data={copos}
+                        keyExtractor={(item) => item.id.toString()}
+                        renderItem={renderItem}
+                        contentContainerStyle={styles.lista}
+                        showsVerticalScrollIndicator={true}
+                    />
+                ) : (
+                    <Text style={styles.nenhum}>Nenhum copo cadastrado ainda.</Text>
+                )}
             </View>
+
+            {retornandoParaTeste ? (
+                <TouchableOpacity style={styles.botaoVoltar} onPress={confirmarSelecao}>
+                    <Text style={styles.textoBotao}>Confirmar seleção</Text>
+                </TouchableOpacity>
+            ) : (
+                <TouchableOpacity style={styles.botaoVoltar} onPress={() => navigation.goBack()}>
+                    <Text style={styles.textoBotao}>Cadastrar novo copo</Text>
+                </TouchableOpacity>
+            )}
         </View>
     );
-
-
-
-
-
-    render() {
-        return (
-            <View style={styles.container}>
-
-                <View style={styles.imageContainer}>
-                    <Image
-                        style={styles.imgItem1}
-                        resizeMode="cover"
-                        source={require("../images/copo_gelo.png")}
-                    />
-
-                    <TouchableOpacity onPress={this.irParaDashboard}>
-                        <Image
-                            style={styles.imgItem2}
-                            resizeMode="cover"
-                            source={require("../images/play.png")}
-                        />
-                    </TouchableOpacity>
-                </View>
-
-
-
-
-                <TouchableOpacity style={styles.button}
-                    onPress={this.handleCadastroCop}>
-                    <Text style={styles.buttonText}>Cadastrar novo copo</Text>
-                </TouchableOpacity>
-
-
-                <View style={styles.listaContainer}>
-                    <Text style={styles.titulo}>Copos Cadastrados:</Text>
-                    <FlatList
-                        contentContainerStyle={{ paddingBottom: 20 }}
-                        data={this.state.copos}
-                        renderItem={this.renderItem}
-                        keyExtractor={(item, index) => index.toString()}
-                    />
-                </View>
-
-            </View >
-        );
-    }
-}
+};
 
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        paddingTop: 0,
-        paddingHorizontal: 20,
-        backgroundColor: "#f0f0f0",
-    },
-    titulo: {
-        fontSize: 24,
-        fontWeight: "bold",
-        marginBottom: 20,
+        backgroundColor: '#181818',
         padding: 20
     },
-    item: {
-
-        backgroundColor: "#ddd",
-        padding: 15,
-        marginBottom: 10,
-        borderRadius: 8,
+    scrollContainer: {
+        flex: 1,
+        marginBottom: 100
     },
-    texto: {
-        fontSize: 18,
-    },
-    imageContainer: {
-        flexDirection: "row",
-        justifyContent: "space-between",
-        alignItems: "center",
+    titulo: {
+        fontSize: 26,
+        fontWeight: 'bold',
         marginBottom: 20,
-        marginTop: -100
+        textAlign: 'center',
+        color: '#fff'
     },
-    imgItem1: {
-        width: "50%",
-        height: 400,
+    loading: {
+        textAlign: 'center',
+        marginTop: 20,
+        color: '#aaa',
+        fontSize: 16
+    },
+    nenhum: {
+        textAlign: 'center',
+        marginTop: 20,
+        color: '#aaa',
+        fontSize: 16
+    },
+    lista: { paddingBottom: 20 },
+    card: {
+        backgroundColor: '#333',
+        padding: 18,
+        borderRadius: 12,
+        marginBottom: 15
+    },
+    copoSelecionado: {
+        borderColor: '#edb11c',
+        borderWidth: 2,
+    },
+    headerCard: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: 6
+    },
+    nome: {
+        fontSize: 18,
+        fontWeight: 'bold',
+        color: '#fff'
+    },
+    info: {
+        fontSize: 16,
+        color: '#ccc'
+    },
+    botaoVoltar: {
+        backgroundColor: '#fff',
+        padding: 15,
         borderRadius: 10,
+        alignItems: 'center',
+        position: 'absolute',
+        bottom: 20,
+        left: 20,
+        right: 20,
     },
-    imgItem2: {
-        width: 100,
-        height: 500,
-        marginRight: 10,
-        marginRight: 50
+    textoBotao: {
+        color: '#000',
+        fontWeight: 'bold',
+        fontSize: 16
     },
-
-    button: {
-        backgroundColor: "black",
-        borderRadius: 10,
-        padding: 10,
-        width: "100%",
-        alignItems: "center",
-        padding: 20,
-        marginTop: -150
+    icones: {
+        flexDirection: 'row',
+        alignItems: 'center'
     },
-
-    itemContent: {
-        flexDirection: "row",
-        justifyContent: "space-between",
-        alignItems: "center",
-    },
-
-    buttonText: {
-        color: "#fff",
-        fontWeight: "bold",
-    },
-    button_item: {
-        backgroundColor: "#c9010e",
-        borderRadius: 10,
-        paddingVertical: 8,
-        paddingHorizontal: 16,
-        alignItems: "center",
-        justifyContent: "center",
-    },
-    buttonText_item: {
-        color: "#fff",
-        fontWeight: "bold",
-
-    },
-    listaContainer: {
-    flex: 1,
-},
-
 });
+
+export default CoposCadastrados;

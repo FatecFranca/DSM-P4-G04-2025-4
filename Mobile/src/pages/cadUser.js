@@ -1,61 +1,83 @@
 import React, { Component } from 'react';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { View, TextInput, TouchableOpacity, Text, StyleSheet, Image } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, Image, Alert } from 'react-native';
+import api from '../services/api';
 
 export default class CadUser extends Component {
   state = {
-    cpf: "",
-    senha: "",
+    nome: '',
+    cpf: '',
+    email: '',
+    senha: '',
   };
+
   handleCadastro = async () => {
-    const { cpf, senha, } = this.state;
-    if (!cpf || !senha) {
-      alert("Preencha todos os campos!");
+    const { nome, cpf, email, senha } = this.state;
+
+    if (!nome || !cpf || !email || !senha) {
+      Alert.alert("Erro", "Preencha todos os campos!");
       return;
     }
 
-    const user = { cpf, senha };
+    const user = { nome, cpf, email, senha };
 
     try {
-      await AsyncStorage.setItem("user", JSON.stringify(user));
-      alert("Usuário cadastrado com sucesso!");
-      this.props.navigation.navigate("Login");
+      await api.post('/usuarios', user);
+      Alert.alert("Sucesso", "Usuário cadastrado com sucesso!");
+      this.props.navigation.navigate('Login');
     } catch (error) {
-      alert("Erro ao salvar usuário!");
-      console.error(error);
+      console.error("Erro ao cadastrar usuário:", error);
+      Alert.alert("Erro", "Não foi possível cadastrar o usuário. Verifique sua conexão.");
     }
   };
 
   render() {
+    const { nome, cpf, email, senha } = this.state;
+
     return (
       <View style={styles.container}>
+        <Text style={styles.titulo}>Cadastro de Usuário_</Text>
 
-        <View style={styles.box}>
-
-          <Text style={styles.texto}>CADASTRO DE USUÁRIO</Text>
-          
+        <Image style={styles.image} source={require('../images/icone_user.png')} />
 
         <TextInput
           style={styles.input}
+          placeholder="Nome"
+          placeholderTextColor="#aaa"
+          value={nome}
+          onChangeText={(text) => this.setState({ nome: text })}
+        />
+        <TextInput
+          style={styles.input}
           placeholder="CPF"
-          placeholderTextColor={"#fff"}
-          value={this.state.cpf}
-          onChangeText={(cpf) => this.setState({ cpf })}
-          autoCapitalize="none"
+          placeholderTextColor="#aaa"
           keyboardType="numeric"
+          value={cpf}
+          onChangeText={(text) => this.setState({ cpf: text })}
+        />
+        <TextInput
+          style={styles.input}
+          placeholder="E-mail"
+          placeholderTextColor="#aaa"
+          keyboardType="email-address"
+          value={email}
+          onChangeText={(text) => this.setState({ email: text })}
         />
         <TextInput
           style={styles.input}
           placeholder="Senha"
-          placeholderTextColor={"#fff"}
-          secureTextEntry={true}
-          value={this.state.senha}
-          onChangeText={(senha) => this.setState({ senha })}
+          placeholderTextColor="#aaa"
+          secureTextEntry
+          value={senha}
+          onChangeText={(text) => this.setState({ senha: text })}
         />
-        <TouchableOpacity style={styles.button} onPress={this.handleCadastro}>
-          <Text style={styles.buttonText}>Cadastrar</Text>
+
+        <TouchableOpacity style={styles.botao} onPress={this.handleCadastro}>
+          <Text style={styles.textoBotao}>Cadastrar</Text>
         </TouchableOpacity>
-      </View>
+
+        <TouchableOpacity onPress={() => this.props.navigation.navigate('Login')}>
+          <Text style={styles.link}>Já possui uma conta? Entrar</Text>
+        </TouchableOpacity>
       </View>
     );
   }
@@ -64,54 +86,48 @@ export default class CadUser extends Component {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: "#717f72",
+    backgroundColor: '#181818',
+    padding: 20,
+    justifyContent: 'center',
   },
-  input: {
-    borderWidth: 2,
-    borderColor: "black",
-    borderRadius: 10,
-    padding: 10,
-    marginVertical: 10,
-    width: "80%",
-    backgroundColor: "#717f72",
-  },
-  button: {
-    backgroundColor: "black",
-    borderRadius: 10,
-    padding: 10,
-    width: "80%",
-    alignItems: "center",
-    marginTop: 10,
-  },
-  buttonText: {
-    color: "#fff",
-    fontWeight: "bold",
-  },
-
-  box: {
-    backgroundColor: "#edb11c",
-    width: "80%",
-    paddingHorizontal: 20,
-    paddingVertical: 40,
-    borderRadius: 20,
-    elevation: 10,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.3,
-    shadowRadius: 3.84,
-    alignItems: "center",
-    minHeight: 400,
-  },
-
-  texto: {
-    fontSize: 20,
-    fontWeight: "bold",
-    color: "#000",
+  titulo: {
+    fontSize: 26,
+    fontWeight: 'bold',
+    color: '#fff',
+    textAlign: 'center',
     marginBottom: 20,
   },
+  image: {
+    width: 100,
+    height: 100,
+    marginBottom: 20,
+    alignSelf: 'center',
+    resizeMode: 'contain',
+  },
+  input: {
+    backgroundColor: '#333',
+    color: '#fff',
+    padding: 15,
+    borderRadius: 10,
+    marginBottom: 15,
+  },
+  botao: {
+    backgroundColor: '#fff',
+    padding: 15,
+    borderRadius: 10,
+    alignItems: 'center',
+    marginTop: 10,
+  },
+  textoBotao: {
+    color: '#000',
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  link: {
+    marginTop: 15,
+    color: '#edb11c',
+    fontSize: 16,
+    fontWeight: 'bold',
+    textAlign: 'center',
+  },
 });
-
-
-
-

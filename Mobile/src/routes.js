@@ -6,6 +6,12 @@ import CadUser from "./pages/cadUser";
 import CadCopo from "./pages/cadCopo";
 import CoposCadastrados from "./pages/coposCadastrados";
 import Dashboard from "./pages/dashBoard";
+import EditarCopo from "./pages/EditarCopo";
+import TesteDeCopos from "./pages/testeDeCopos";
+import Ranking from "./pages/ranking";
+
+
+
 
 
 
@@ -83,6 +89,29 @@ export default function Routes() {
                     },
                 }}
             />
+            <Stack.Screen
+                name="EditarCopo"
+                component={EditarCopo}
+                options={{
+                    headerTitle: () => <Image source={require('./images/logo_thermoTrack.png')}
+                        style={{ width: 300, height: 150, resizeMode: 'contain' }} />,
+                    headerTitleAlign: "center",
+                    headerStyle: { backgroundColor: "#edb11c" },
+                    headerTitleStyle: { color: "black" },
+                }} />
+            <Stack.Screen
+                name="TesteDeCopos"
+                component={TesteDeCopos}
+                options={{
+                    headerTitle: () => <Image source={require('./images/logo_thermoTrack.png')} style={{ width: 300, height: 150, resizeMode: 'contain' }} />,
+                    headerTitleAlign: "center",
+                    headerStyle: { backgroundColor: "#edb11c" },
+                    headerTitleStyle: { color: "black" },
+                }}
+            />
+            <Stack.Screen name="Ranking" component={Ranking} />
+
         </Stack.Navigator>
+        
     );
 }

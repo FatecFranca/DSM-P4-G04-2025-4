@@ -1,219 +1,143 @@
-import React, { Component } from 'react';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { View, TextInput, TouchableOpacity, Text, StyleSheet, Image, KeyboardAvoidingView, } from 'react-native';
-import { Picker } from '@react-native-picker/picker';
+import React, { useState } from 'react';
+import {
+  View,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  StyleSheet,
+  Alert,
+  Image
+} from 'react-native';
+import { useNavigation, useRoute } from '@react-navigation/native';
+import api from '../services/api';
 
-export default class CadCopo extends Component {
-  state = {
+export default function CadCopo() {
+  const navigation = useNavigation();
+  const route = useRoute();
+  const { usuarioId } = route.params;
 
-    marca: "",
-    capacidade: "",
-    estado:"",
+  const [nome, setNome] = useState('');
+  const [marca, setMarca] = useState('');
+  const [capacidade, setCapacidade] = useState('');
 
-  };
-  handleCadastroCop = async () => {
-    const { marca, capacidade, estado } = this.state;
-
-    if (!marca || !capacidade || !estado) {
-      alert("Preencha todos os campos para cadastrar o copo!");
+  const handleCadastro = async () => {
+    if (!nome || !marca || !capacidade) {
+      Alert.alert('Erro', 'Preencha todos os campos');
       return;
     }
 
-    const novoCopo = { marca, capacidade, estado };
-
     try {
-      
-      const coposSalvos = await AsyncStorage.getItem("copos");
-      let listaCopos = coposSalvos ? JSON.parse(coposSalvos) : [];
+      await api.post('/copos', {
+        nome,
+        marca,
+        capacidade_ml: parseInt(capacidade),
+        usuario_id: usuarioId,
+      });
 
-      
-      listaCopos.push(novoCopo);
-
-     
-      await AsyncStorage.setItem("copos", JSON.stringify(listaCopos));
-
-      alert("Copo cadastrado com sucesso!");
-      this.props.navigation.navigate("coposCadastrados");
+      Alert.alert('Sucesso', 'Copo cadastrado com sucesso!');
+      setNome('');
+      setMarca('');
+      setCapacidade('');
     } catch (error) {
-      alert("Erro ao salvar copo!");
       console.error(error);
+      Alert.alert('Erro', 'Erro ao cadastrar copo');
     }
   };
 
-  handleCoposCadastrados = () => {
-        this.props.navigation.navigate("coposCadastrados");
-    };
+  return (
+    <View style={styles.container}>
+      
 
-  render() {
-    return (
-      <KeyboardAvoidingView
-        style={{ flex: 1 }}
+      <Image style={styles.image} source={require("../images/copo_gelo.png")} />
+
+      <Text style={styles.titulo}>Cadastrar Copo_</Text>
+
+      <TextInput
+        style={styles.input}
+        placeholder="Nome do copo"
+        placeholderTextColor="#aaa"
+        value={nome}
+        onChangeText={setNome}
+      />
+
+      <TextInput
+        style={styles.input}
+        placeholder="Marca"
+        placeholderTextColor="#aaa"
+        value={marca}
+        onChangeText={setMarca}
+      />
+
+      <TextInput
+        style={styles.input}
+        placeholder="Capacidade (ml)"
+        placeholderTextColor="#aaa"
+        value={capacidade}
+        onChangeText={setCapacidade}
+        keyboardType="numeric"
+      />
+
+      <TouchableOpacity style={styles.botao} onPress={handleCadastro}>
+        <Text style={styles.textoBotao}>Cadastrar</Text>
+      </TouchableOpacity>
+
+      <TouchableOpacity
+        style={[styles.botao, { backgroundColor: '#edb11c', marginTop: 10 }]}
+        onPress={() =>
+          navigation.navigate('coposCadastrados', { usuarioId })
+        }
       >
-        <View style={styles.container}>
-
-          <View style={styles.texto1}>
-
-            <Text style={styles.texto1_edit}>Agora vamos cadastrar os {'\n'}copos que serão testados _</Text>
-
-          </View>
-
-          <View style={styles.linha}>
-            <Text style={styles.texto}>Marca:</Text>
-
-
-            <Picker
-              selectedValue={this.state.marca}
-              style={{ flex: 1, color: "#fff", backgroundColor: "#717f72", borderRadius: 10 }}
-              onValueChange={(itemValue) => this.setState({ marca: itemValue })}
-            >
-              <Picker.Item label="Selecione a marca" value="" />
-              <Picker.Item label="Stanley" value="Stanley" />
-              <Picker.Item label="Concorrente" value="Concorrente" />
-              <Picker.Item label="Genérico" value="Generico" />
-            </Picker>
-
-          </View>
-
-          
-            
-            <View style={styles.linha}>
-              <Text style={styles.texto}>Capacidade:</Text>
-
-              <Picker
-                selectedValue={this.state.capacidade}
-                style={{ flex: 1, color: "#fff", backgroundColor: "#717f72", borderRadius: 10 }}
-                onValueChange={(itemValue) => this.setState({ capacidade: itemValue })}
-              >
-                <Picker.Item label="Selecione a capacidade" value="" />
-                <Picker.Item label="473" value="473" />
-              </Picker>
-            </View>
-            <View style={styles.linha}>
-              <Text style={styles.texto}>Estado:</Text>
-
-              <Picker
-                selectedValue={this.state.estado}
-                style={{ flex: 1, color: "#fff", backgroundColor: "#717f72", borderRadius: 10 }}
-                onValueChange={(itemValue) => this.setState({ estado: itemValue })}
-              >
-                <Picker.Item label="Selecione o estado" value="" />
-                <Picker.Item label="Frio" value="Frio" />
-                <Picker.Item label="Quente" value="Quente" />
-                
-              </Picker>
-            </View>
-
-          
-          
-          <TouchableOpacity style={styles.button}
-            onPress={this.handleCadastroCop}>
-            <Text style={styles.buttonText}>Cadastrar</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity style={styles.button}
-            onPress={this.handleCoposCadastrados}>
-            <Text style={styles.buttonText}>Copos cadastrados</Text>
-          </TouchableOpacity>
-
-        </View>
-        <View style={styles.image}>
-          <Image
-            style={styles.image}
-            source={require("../images/logo_thermoTrack.png")}
-          />
-        </View>
-      </KeyboardAvoidingView>
-
-    );
-  }
+        <Text style={styles.textoBotaoPreto}>Copos cadastrados</Text>
+      </TouchableOpacity>
+    </View>
+  );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: "fff",
+    backgroundColor: '#181818',
+    padding: 20,
+    justifyContent: 'flex-start', // alterado de 'center' para 'flex-start'
+  },
+  titulo: {
+    fontSize: 35,
+    fontWeight: 'bold',
+    color: '#fff',
+    textAlign: 'center',
+    marginBottom: 10,
+    marginTop: 10, // opcional, para dar um respiro no topo
   },
   input: {
-    flex: 1,
-    borderWidth: 2,
-    borderColor: "black",
+    backgroundColor: '#333',
+    color: '#fff',
+    padding: 15,
     borderRadius: 10,
-    padding: 10,
-    backgroundColor: "#717f72",
-    color: "#fff",
+    marginBottom: 15,
   },
-  button: {
-    backgroundColor: "black",
+  botao: {
+    backgroundColor: '#fff',
+    padding: 15,
     borderRadius: 10,
-    padding: 10,
-    width: "80%",
-    alignItems: "center",
-    marginTop: 10,
+    alignItems: 'center',
   },
-  buttonText: {
-    color: "#fff",
-    fontWeight: "bold",
+  textoBotao: {
+    color: '#000',
+    fontSize: 16,
+    fontWeight: 'bold',
   },
-
-  box: {
-    backgroundColor: "#edb11c",
-    width: "80%",
-    paddingHorizontal: 20,
-    paddingVertical: 40,
-    borderRadius: 20,
-    elevation: 10,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.3,
-    shadowRadius: 3.84,
-    alignItems: "center",
-    minHeight: 400,
+  textoBotaoPreto: {
+    color: '#000',
+    fontSize: 16,
+    fontWeight: 'bold',
   },
-
-  texto1: {
-    marginTop: 10,
-    marginBottom: 30,
-    fontSize: 20,
-    fontWeight: "bold",
-    textAlign: "center",
-    color: "#000",
-    paddingHorizontal: 20,
-
-  },
-  texto1_edit: {
-    fontSize: 25,
-    fontWeight: "bold",
-  },
-
-
-  texto: {
-    fontSize: 20,
-    fontWeight: "bold",
-    color: "#000",
-    marginRight: 10,
-
-  },
-
-  linha: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    width: "80%",
-    marginBottom: 10,
-  },
-
   image: {
-    width: 300,
-    height: 100,
-    marginTop: 25,
-    marginLeft: 30,
-    marginBottom: 20,
-    alignItems: "center",
-    justifyContent: "center",
-  },
+  width: 350,
+  height: 250,
+  marginTop: 10,
+  marginBottom: -20, // valor negativo para "puxar" os elementos para cima
+  alignSelf: 'center',
+  resizeMode: 'contain',
+},
+
 });
-
-
-
-

@@ -1,139 +1,156 @@
 import React, { useState } from "react";
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, Image } from "react-native";
-import AsyncStorage from "@react-native-async-storage/async-storage";
-import { useNavigation } from '@react-navigation/native';
-
+import {
+  View,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  StyleSheet,
+  Image,
+  Alert,
+} from "react-native";
+import { useNavigation } from "@react-navigation/native";
+import api from "../services/api";
 
 const Login = () => {
-  const [cpf, setCpf] = useState("");
-  const [senha, setSenha] = useState("")
+  const [nome, setNome] = useState("");
+  const [senha, setSenha] = useState("");
+  const [loading, setLoading] = useState(false);
 
   const navigation = useNavigation();
 
   const handleLogin = async () => {
-    const user = await AsyncStorage.getItem("user")
-    if (!user) {
-      alert("Nenhum usuário cadastrado!")
-      return
+    if (!nome || !senha) {
+      Alert.alert("Erro", "Preencha todos os campos!");
+      return;
     }
-    const userJson = JSON.parse(user)
 
-    if (userJson.cpf === cpf && userJson.senha === senha) {
-      navigation.navigate("CadCopo");
-    } else {
-      alert("CPF ou senha inválidos!")
+    setLoading(true);
+
+    try {
+      const response = await api.get("/usuarios");
+      const usuarios = response.data;
+
+      const usuarioEncontrado = usuarios.find(
+        (user) =>
+          user.nome.trim().toLowerCase() === nome.trim().toLowerCase() &&
+          user.senha === senha
+      );
+
+      if (usuarioEncontrado) {
+        Alert.alert("Sucesso", "Login realizado com sucesso!");
+        navigation.navigate("CadCopo", { usuarioId: usuarioEncontrado.id });
+      } else {
+        Alert.alert("Erro", "Nome ou senha inválidos!");
+      }
+    } catch (error) {
+      console.error("Erro no login:", error);
+      Alert.alert("Erro", "Não foi possível conectar com o servidor.");
+    } finally {
+      setLoading(false);
     }
   };
 
   const handleCadastro = () => {
-    navigation.navigate('CadastrarUsuario');
+    navigation.navigate("CadastrarUsuario");
   };
 
   return (
-
     <View style={styles.container}>
+      <Image style={styles.image} source={require("../images/icone_user.png")} />
 
-      <View style={styles.box}>
-        <Image
-          style={styles.image}
-          source={require("../images/icone_user.png")}
-        />
+      <TextInput
+        style={styles.input}
+        placeholder="Nome"
+        placeholderTextColor="#aaa"
+        value={nome}
+        onChangeText={setNome}
+        editable={!loading}
+      />
 
-        <TextInput
-          style={styles.input}
-          placeholder="CPF"
-          placeholderTextColor="#fff"
-          value={cpf}
-          onChangeText={setCpf}
-          keyboardType="numeric"
-          autoCapitalize="none"
+      <TextInput
+        style={styles.input}
+        placeholder="Senha"
+        placeholderTextColor="#aaa"
+        secureTextEntry
+        value={senha}
+        onChangeText={setSenha}
+        editable={!loading}
+      />
 
-        ></TextInput>
-        <TextInput
-          style={styles.input}
-          placeholder="Senha"
-          placeholderTextColor="#fff"
-          secureTextEntry
-          value={senha}
-          onChangeText={setSenha}
+      <TouchableOpacity
+        style={[styles.button, loading && styles.buttonDisabled]}
+        onPress={handleLogin}
+        disabled={loading}
+      >
+        <Text style={styles.buttonText}>
+          {loading ? "Entrando..." : "Entrar"}
+        </Text>
+      </TouchableOpacity>
 
-        ></TextInput>
-
-        <TouchableOpacity
-          style={styles.button}
-          onPress={handleLogin}>
-          <Text style={styles.buttonText}>Entrar</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={styles.button}
-          onPress={handleCadastro}>
-          <Text style={styles.buttonText}>Cadastrar</Text>
-        </TouchableOpacity>
-      </View>
+      <TouchableOpacity
+        style={[styles.buttonYellow, loading && styles.buttonDisabled]}
+        onPress={handleCadastro}
+        disabled={loading}
+      >
+        <Text style={styles.buttonTextBlack}>Cadastrar</Text>
+      </TouchableOpacity>
     </View>
-
   );
-}
+};
 
 const styles = StyleSheet.create({
-
   container: {
     flex: 1,
-    alignItems: "center",
+    backgroundColor: "#181818",
     justifyContent: "center",
-    backgroundColor: "#717f72",
-  },
-  input: {
-
-    borderWidth: 2,
-    borderColor: "black",
-    borderRadius: 10,
-    padding: 10,
-    backgroundColor: "#717f72",
-    opacity: 0.8,
-    marginVertical: 10,
-    width: "100%",
-    maxWidth: 250,
-  },
-
-  button: {
-    backgroundColor: "black",
-    borderRadius: 10,
-    padding: 10,
-    width: "100%",
-    maxWidth: 250,
     alignItems: "center",
-    marginVertical: 5,
+    padding: 20,
   },
-
-  buttonText: {
-    color: "#fff",
-    fontWeight: "bold",
-    fontSize: 15,
-  },
-  box: {
-    backgroundColor: "#edb11c",
-    width: "80%",
-    paddingHorizontal: 20,
-    paddingVertical: 40,
-    borderRadius: 20,
-    elevation: 10,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.3,
-    shadowRadius: 3.84,
-    alignItems: "center",
-    minHeight: 400,
-  },
-
   image: {
-    width: 100,
-    height: 100,
-    marginBottom: 20,
+    width: 200,
+    height:150,
+    marginBottom: 30,
     resizeMode: "contain",
   },
-
-
+  input: {
+    backgroundColor: "#333",
+    color: "#fff",
+    padding: 15,
+    borderRadius: 10,
+    marginBottom: 15,
+    width: "100%",
+    maxWidth: 300,
+  },
+  button: {
+    backgroundColor: "#fff",
+    padding: 15,
+    borderRadius: 10,
+    alignItems: "center",
+    width: "100%",
+    maxWidth: 300,
+    marginBottom: 10,
+  },
+  buttonYellow: {
+    backgroundColor: "#edb11c",
+    padding: 15,
+    borderRadius: 10,
+    alignItems: "center",
+    width: "100%",
+    maxWidth: 300,
+  },
+  buttonDisabled: {
+    opacity: 0.6,
+  },
+  buttonText: {
+    color: "#000",
+    fontWeight: "bold",
+    fontSize: 16,
+  },
+  buttonTextBlack: {
+    color: "#000",
+    fontWeight: "bold",
+    fontSize: 16,
+  },
 });
 
 export default Login;
