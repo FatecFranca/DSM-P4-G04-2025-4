@@ -70,7 +70,7 @@ app.use(bodyParser.json());
 
 app.use("/", homeController);
 
-app.listen(porta, () => {
+app.listen(porta, '0.0.0.0', () => {
 
     console.log("Servidor rodando na porta: " + porta);
 
