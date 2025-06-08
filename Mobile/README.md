@@ -57,3 +57,69 @@ Obs:A aplicação depende de uma API privada que conecta ao banco de dados. Essa
 
  <img src="https://github.com/user-attachments/assets/fc6fd706-3273-44ff-8aca-e715860a1163" width="300" /> <img src="https://github.com/user-attachments/assets/ac6c93c8-2bf8-4579-b496-3282d1f223b8" width="300" /> <img src="https://github.com/user-attachments/assets/9417c9ba-341e-42c4-ba6c-0f69a6aecbc4" width="300" /> <img src="https://github.com/user-attachments/assets/bbae5e5e-20fe-464b-8d8f-895d1f141d5f" width="300" /> <img src="https://github.com/user-attachments/assets/93eedfc5-f27d-4e02-bb95-5316b06ba2d4" width="300" /> <img src="https://github.com/user-attachments/assets/d6d616cf-4c05-4c76-83ae-a3811b702ae7" width="300" />
 <img src="https://github.com/user-attachments/assets/04aa2868-1060-4f3a-904e-c519941509bc" width="300" /> <img src="https://github.com/user-attachments/assets/c9a8e539-2081-4327-828c-981aa27e13cf" width="300" /> <img src="https://github.com/user-attachments/assets/5347e531-5b29-4afc-92bb-89362d899559" width="300" /> <img src="https://github.com/user-attachments/assets/770c9bc0-0737-4af3-ad66-3873f5a260c4" width="300" /> <img src="https://github.com/user-attachments/assets/44944898-6a47-4873-afd9-0f84bc8f9666" width="300" /> <img src="https://github.com/user-attachments/assets/c7c2f263-3a3e-4fa9-923d-392dd7dd40a7" width="300" />  <img src="https://github.com/user-attachments/assets/502bde3a-a69f-4b6d-be40-c1c08c7c858c" width="300" /> 
+
+## 🎨 Style Guide — ThermoTrack Mobile
+
+---
+
+### 🟡 Paleta de Cores
+
+| Cor         | Hex       | Descrição                     |
+|-------------|-----------|-------------------------------|
+| ![#181818](https://via.placeholder.com/15/181818/000000?text=+) `#181818` | Fundo escuro | Fundo principal, texto escuro |
+| ![#FFFFFF](https://via.placeholder.com/15/FFFFFF/000000?text=+) `#FFFFFF` | Branco       | Texto, fundo de cards          |
+| ![#EDB11C](https://via.placeholder.com/15/EDB11C/000000?text=+) `#EDB11C` | Amarelo ouro | Destaques, botões              |
+
+---
+
+### 🔤 Tipografia
+
+**Fonte principal:** `Inter` ou `Roboto` (fallback)
+
+| Estilo       | Peso   | Tamanho | Exemplo                            |
+|--------------|--------|---------|------------------------------------|
+| Título       | Bold   | 24px    | **THERMOTRACK - Comparação Térmica** |
+| Subtítulo    | Medium | 18px    | *Medições automáticas via IoT*     |
+| Texto comum  | Regular| 14-16px | O copo Stanley manteve a temp. por 1h50min |
+| Botão        | Bold   | 14px    | `INICIAR TESTE`                     |
+
+---
+
+### 🔘 Componentes de Interface
+
+- **Botão Primário:**  
+  Fundo `#EDB11C`, texto `#181818`, bordas arredondadas.
+
+- **Botão Secundário:**  
+  Fundo `#181818`, texto `#FFFFFF`, borda `#EDB11C`.
+
+- **Card de Copo:**  
+  Fundo `#FFFFFF`, texto em `#181818`, sombra leve, canto arredondado.
+
+---
+
+### 🧪 Exemplo CSS
+
+```css
+:root {
+  --cor-fundo: #181818;
+  --cor-texto: #ffffff;
+  --cor-destaque: #edb11c;
+  --fonte-principal: 'Inter', sans-serif;
+}
+
+body {
+  background-color: var(--cor-fundo);
+  color: var(--cor-texto);
+  font-family: var(--fonte-principal);
+}
+
+button.primary {
+  background-color: var(--cor-destaque);
+  color: var(--cor-fundo);
+  border-radius: 8px;
+  padding: 10px 20px;
+  font-weight: bold;
+  border: none;
+}
+
