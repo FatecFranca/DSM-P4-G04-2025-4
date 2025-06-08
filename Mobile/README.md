@@ -46,8 +46,8 @@ Os dados de temperatura são coletados automaticamente e enviados para a aplica�
    ```bash
    git clone https://github.com/seu-usuario/thermotrack-mobile.git
 2. cd thermotrack-mobile
-3.npm install
-npm start
+3. npm install
+4. npm start
 
 Obs:A aplicação depende de uma API privada que conecta ao banco de dados. Essa API deve estar devidamente inicializada e funcionando para que o aplicativo opere normalmente.
 
