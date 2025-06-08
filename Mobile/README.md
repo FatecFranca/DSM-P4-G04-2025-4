@@ -2,10 +2,10 @@
 
 ## Membros do projeto:
 
-Wilton Monteiro Resende - 
-Gustavo Santos Moreira - 
-Thiago Resende - 
-Danilo Benedetti
+*Wilton Monteiro Resende - 
+*Gustavo Santos Moreira - 
+*Thiago Resende - 
+*Danilo Benedetti
 
 
 ## Sobre o projeto
