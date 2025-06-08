@@ -62,13 +62,13 @@ Obs:A aplicação depende de uma API privada que conecta ao banco de dados. Essa
 
 ---
 
-### 🟡 Paleta de Cores
+## 🎨 Paleta de Cores
 
-| Cor         | Hex       | Descrição                     |
-|-------------|-----------|-------------------------------|
-| ![#181818](https://via.placeholder.com/15/181818/000000?text=+) `#181818` | Fundo escuro | Fundo principal, texto escuro |
-| ![#FFFFFF](https://via.placeholder.com/15/FFFFFF/000000?text=+) `#FFFFFF` | Branco       | Texto, fundo de cards          |
-| ![#EDB11C](https://via.placeholder.com/15/EDB11C/000000?text=+) `#EDB11C` | Amarelo ouro | Destaques, botões              |
+| Cor Visual | Hex       | Descrição                    |
+|------------|-----------|------------------------------|
+| ![#181818](https://placehold.co/15x15/181818/181818.png) | `#181818` | Fundo escuro / texto principal |
+| ![#FFFFFF](https://placehold.co/15x15/FFFFFF/FFFFFF.png) | `#FFFFFF` | Branco / fundos e contraste    |
+| ![#EDB11C](https://placehold.co/15x15/EDB11C/EDB11C.png) | `#EDB11C` | Amarelo ouro / destaques       |
 
 ---
 
