@@ -83,43 +83,5 @@ Obs:A aplicação depende de uma API privada que conecta ao banco de dados. Essa
 | Texto comum  | Regular| 14-16px | O copo Stanley manteve a temp. por 1h50min |
 | Botão        | Bold   | 14px    | `INICIAR TESTE`                     |
 
----
 
-### 🔘 Componentes de Interface
-
-- **Botão Primário:**  
-  Fundo `#EDB11C`, texto `#181818`, bordas arredondadas.
-
-- **Botão Secundário:**  
-  Fundo `#181818`, texto `#FFFFFF`, borda `#EDB11C`.
-
-- **Card de Copo:**  
-  Fundo `#FFFFFF`, texto em `#181818`, sombra leve, canto arredondado.
-
----
-
-### 🧪 Exemplo CSS
-
-```css
-:root {
-  --cor-fundo: #181818;
-  --cor-texto: #ffffff;
-  --cor-destaque: #edb11c;
-  --fonte-principal: 'Inter', sans-serif;
-}
-
-body {
-  background-color: var(--cor-fundo);
-  color: var(--cor-texto);
-  font-family: var(--fonte-principal);
-}
-
-button.primary {
-  background-color: var(--cor-destaque);
-  color: var(--cor-fundo);
-  border-radius: 8px;
-  padding: 10px 20px;
-  font-weight: bold;
-  border: none;
-}
 
