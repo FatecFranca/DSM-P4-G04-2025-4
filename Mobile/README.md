@@ -15,7 +15,7 @@ Os dados de temperatura são coletados automaticamente e enviados para a aplica�
 - Monitoramento da temperatura em intervalos regulares (ex: a cada 10 minutos).
 - Encerramento automático do teste após 2 horas.
 - Ranking dos copos baseado no tempo que mantiveram a temperatura.
-- Histórico de testes realizados para cada copo, armazenado em banco de dados MongoDB.
+- Histórico de testes realizados para cada copo, armazenado em banco de dados.
 - Visualização dos dados através de um Dashboard integrado (web e mobile).
 
 ---
