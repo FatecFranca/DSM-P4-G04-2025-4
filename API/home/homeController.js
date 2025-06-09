@@ -353,7 +353,6 @@ router.post('/comando-consumido', async (req, res) => {
         }
 
         // Se o status for 'pendente', atualiza para 'executado'
-        // CORREÇÃO: Adicionar .promise() antes de .query()
         const [updateResult] = await connection.promise().query(`
             UPDATE comando_teste
             SET status = 'executado', executado_em = NOW()
