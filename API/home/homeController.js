@@ -262,9 +262,10 @@ router.delete("/testes/:teste_id", (req, res) => {
     });
 });
 
-/* 
-======== INICIAR TESTE - Apenas registra os testes e aciona o ESP32 ========
-O IoT é quem fará as medições e devolverá t0, t10...t120 e k posteriormente.
+/*
+======== INICIAR TESTE - Apenas registra o comando na tabela comando_teste ========
+O IoT (ESP32) fará a leitura dos comandos pendentes via endpoint '/comando-pendente'.
+Essa rota apenas insere a solicitação inicial.
 */
 router.post('/testes', async (req, res) => {
     const { usuario_id, copos, tipo } = req.body;
@@ -274,35 +275,112 @@ router.post('/testes', async (req, res) => {
     }
 
     try {
-        await axios.post('http://192.168.115.188/iniciarTeste', { usuario_id, copos, tipo });
-        return res.json({ message: 'Teste iniciado no ESP32!' });
+        // Insere novo comando na tabela comando_teste com status 'pendente'
+        // A coluna 'criado_em' deve ter um DEFAULT CURRENT_TIMESTAMP no banco
+        await connection.query(`
+            INSERT INTO comando_teste (usuario_id, copos, tipo, status)
+            VALUES (?, ?, ?, 'pendente')
+        `, [usuario_id, JSON.stringify(copos), tipo]);
+
+        return res.status(201).json({ message: 'Solicitação de teste registrada! O IoT irá iniciar automaticamente.' });
     } catch (err) {
-        return res.status(500).json({ message: 'Erro ao comunicar com o ESP32.', erro: err.message });
+        console.error('[ERRO] Falha ao registrar teste:', err.message);
+        return res.status(500).json({ message: 'Erro ao registrar teste.', erro: err.message });
     }
 });
 
-// Função auxiliar para envio ao ESP32 (road test)
-async function iniciarTesteESP32(usuario_id, copos, tipo, test_ids) {
+/*
+======== GET /comando-pendente ========
+Endpoint usado pelo IoT (ESP32) para buscar o próximo comando a ser executado.
+Retorna o comando mais antigo com status 'pendente'.
+*/
+router.get('/comando-pendente', async (req, res) => {
     try {
-        await axios.post('http://192.168.115.188/iniciarTeste', {
-            usuario_id, copos, tipo, test_ids
-        });
-        return { success: true };
-    } catch (err) {
-        console.error('Erro ao conectar ao ESP32:', err.message);
-        return { success: false };
-    }
-}
+        // BUSCA O PRIMEIRO COMANDO PENDENTE ORDENADO POR CRIAÇÃO
+        // Para um único ESP32, esta query é suficiente.
+        const [rows] = await connection.query(`
+            SELECT id, usuario_id, copos, tipo
+            FROM comando_teste
+            WHERE status = 'pendente'
+            ORDER BY criado_em ASC
+            LIMIT 1
+        `);
 
-/* 
+        if (rows.length) {
+            // Retorna o comando encontrado
+            res.json({ iniciar: true, comando: rows[0] });
+        } else {
+            // Não há comandos pendentes
+            res.json({ iniciar: false });
+        }
+    } catch (err) {
+        console.error('[ERRO] Falha ao buscar comando pendente:', err.message);
+        return res.status(500).json({ message: 'Erro ao buscar comando pendente.', erro: err.message });
+    }
+});
+
+/*
+======== POST /comando-consumido ========
+Endpoint usado pelo IoT (ESP32) para notificar que pegou um comando.
+Atualiza o status do comando para 'executado'.
+ADICIONADO: Validação para só atualizar se o status for 'pendente'.
+*/
+router.post('/comando-consumido', async (req, res) => {
+    const { id } = req.body;
+
+    if (!id) {
+        return res.status(400).json({ message: 'ID do comando é obrigatório.' });
+    }
+
+    try {
+        // Primeiro, verifica o status atual do comando
+        const [rows] = await connection.query('SELECT status FROM comando_teste WHERE id = ?', [id]);
+
+        if (!rows.length) {
+            // Comando não encontrado
+            return res.status(404).json({ ok: false, message: "Comando não encontrado." });
+        }
+
+        if (rows[0].status !== 'pendente') {
+            // Comando já foi consumido ou está em outro status
+            // Retorna 409 Conflict para indicar que o estado atual não permite a operação
+            console.warn(`[ALERTA] Tentativa de consumir comando ${id} que não está pendente (status: ${rows[0].status}).`);
+            return res.status(409).json({ ok: false, message: "Comando já consumido ou não está pendente." });
+        }
+
+        // Se o status for 'pendente', atualiza para 'executado'
+        const [updateResult] = await connection.query(`
+            UPDATE comando_teste
+            SET status = 'executado', executado_em = NOW()
+            WHERE id = ? AND status = 'pendente' -- Garante que só atualiza se ainda for 'pendente'
+        `, [id]);
+
+        if (updateResult.affectedRows === 0) {
+             // Rara, mas pode acontecer se outro processo atualizou entre o SELECT e o UPDATE
+            console.warn(`[ALERTA] Conflito ao atualizar comando ${id}: 0 linhas afetadas.`);
+            return res.status(409).json({ ok: false, message: "Conflito ao atualizar status do comando." });
+        }
+
+        console.log(`Comando ${id} marcado como executado.`);
+        res.json({ ok: true, message: "Comando marcado como executado." });
+
+    } catch (err) {
+        console.error(`[ERRO] Falha ao marcar comando ${id} como consumido:`, err.message);
+        return res.status(500).json({ message: 'Erro ao marcar comando como consumido.', erro: err.message });
+    }
+});
+
+/*
 ======== RECEBER OS RESULTADOS DO TESTE (após as 2h, ESP32 envia os dados medidos) ========
+Endpoint para registrar os resultados detalhados de um teste.
+ADICIONADO: Prevenção contra inserção duplicada do mesmo resultado.
 */
 // Função utilitária para converter ISO 8601 para formato MySQL DATETIME
 function parseToMySQLDatetime(str) {
     if (!str) return null;
     // Cria objeto Date a partir da string ISO
     const d = new Date(str);
-    if (isNaN(d)) return null;
+    if (isNaN(d.getTime())) return null; // Use getTime() para verificar validade
     // Retorna no formato 'YYYY-MM-DD HH:MM:SS'
     return d.toISOString().slice(0, 19).replace('T', ' ');
 }
@@ -315,11 +393,12 @@ router.post('/resultadosTestes', async (req, res) => {
         t0, t10, t20, t30, t40, t50, t60, t70, t80, t90, t100, t110, t120, k
     } = req.body;
 
+    // Validação básica de campos obrigatórios
     if (!usuario_id || !copo_id || !tipo || !data_inicio || !data_fim || t0 === undefined || k === undefined) {
         return res.status(400).json({ message: 'Campos obrigatórios ausentes.' });
     }
 
-    // Converte datas para o formato aceito pelo MySQL
+    // Converte datas para o formato aceito pelo MySQL e valida
     const data_inicio_mysql = parseToMySQLDatetime(data_inicio);
     const data_fim_mysql = parseToMySQLDatetime(data_fim);
 
@@ -327,24 +406,44 @@ router.post('/resultadosTestes', async (req, res) => {
         return res.status(400).json({ message: 'Formato de data/hora inválido.' });
     }
 
-    const sql = `
-        INSERT INTO Teste (
-            usuario_id, copo_id, tipo, data_inicio, data_fim,
-            t0, t10, t20, t30, t40, t50, t60, t70, t80, t90, t100, t110, t120, k
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `;
-
-    const params = [
-        usuario_id, copo_id, tipo, data_inicio_mysql, data_fim_mysql,
-        t0, t10, t20, t30, t40, t50, t60, t70, t80, t90, t100, t110, t120, k
-    ];
-
     try {
-        const result = await connection.promise().query(sql, params);
-        const insertId = result[0].insertId;
-        return res.status(201).json({ message: 'Teste registrado com sucesso!', teste_id: insertId });
+        // --- PREVENÇÃO DE DUPLICIDADE ---
+        // Verifica se já existe um resultado para este usuário, copo e data de início.
+        // Isso é crucial para evitar que o reenvio do ESP32 crie registros duplicados.
+        const [existe] = await connection.query(
+          "SELECT id FROM Teste WHERE usuario_id=? AND copo_id=? AND data_inicio=?",
+          [usuario_id, copo_id, data_inicio_mysql]
+        );
+
+        if (existe.length > 0) {
+          // Se já existe, retorna 409 Conflict (ou 200 OK se preferir ser idempotente)
+          console.warn(`[ALERTA] Tentativa de inserir resultado duplicado para usuário ${usuario_id}, copo ${copo_id}, data ${data_inicio_mysql}.`);
+          return res.status(409).json({ message: "Resultado de teste já registrado anteriormente." });
+        }
+        // --- FIM PREVENÇÃO DE DUPLICIDADE ---
+
+
+        // Se não existe, procede com a inserção
+        const sql = `
+            INSERT INTO Teste (
+                usuario_id, copo_id, tipo, data_inicio, data_fim,
+                t0, t10, t20, t30, t40, t50, t60, t70, t80, t90, t100, t110, t120, k
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `;
+
+        const params = [
+            usuario_id, copo_id, tipo, data_inicio_mysql, data_fim_mysql,
+            t0, t10, t20, t30, t40, t50, t60, t70, t80, t90, t100, t110, t120, k
+        ];
+
+        const [result] = await connection.promise().query(sql, params);
+        const insertId = result.insertId; // Use .insertId para obter o ID inserido
+
+        console.log(`Resultado de teste ${insertId} registrado com sucesso.`);
+        return res.status(201).json({ message: 'Resultado de teste registrado com sucesso!', teste_id: insertId });
+
     } catch (err) {
-        console.error(err);
+        console.error('[ERRO] Falha ao salvar resultados no banco:', err.message);
         return res.status(500).json({ message: 'Erro ao salvar resultados no banco.', erro: err.message });
     }
 });
