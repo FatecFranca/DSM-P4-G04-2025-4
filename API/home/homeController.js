@@ -298,7 +298,7 @@ router.get('/comando-pendente', async (req, res) => {
     try {
         // BUSCA O PRIMEIRO COMANDO PENDENTE ORDENADO POR CRIAÇÃO
         // Para um único ESP32, esta query é suficiente.
-        const [rows] = await connection.query(`
+        const [rows] = await connection.promise().query(`
             SELECT id, usuario_id, copos, tipo
             FROM comando_teste
             WHERE status = 'pendente'
@@ -308,6 +308,8 @@ router.get('/comando-pendente', async (req, res) => {
 
         if (rows.length) {
             // Retorna o comando encontrado
+            // Certifique-se de que 'copos' está sendo retornado como string JSON ou array no backend
+            // e que o ESP32 consegue parsear.
             res.json({ iniciar: true, comando: rows[0] });
         } else {
             // Não há comandos pendentes
@@ -315,9 +317,10 @@ router.get('/comando-pendente', async (req, res) => {
         }
     } catch (err) {
         console.error('[ERRO] Falha ao buscar comando pendente:', err.message);
+        // É uma boa prática retornar o status 500 em caso de erro interno
         return res.status(500).json({ message: 'Erro ao buscar comando pendente.', erro: err.message });
     }
-});
+});g
 
 /*
 ======== POST /comando-consumido ========
