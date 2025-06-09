@@ -320,7 +320,7 @@ router.get('/comando-pendente', async (req, res) => {
         // É uma boa prática retornar o status 500 em caso de erro interno
         return res.status(500).json({ message: 'Erro ao buscar comando pendente.', erro: err.message });
     }
-});g
+});
 
 /*
 ======== POST /comando-consumido ========
