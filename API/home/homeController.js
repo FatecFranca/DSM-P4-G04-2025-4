@@ -337,7 +337,8 @@ router.post('/comando-consumido', async (req, res) => {
 
     try {
         // Primeiro, verifica o status atual do comando
-        const [rows] = await connection.query('SELECT status FROM comando_teste WHERE id = ?', [id]);
+        // CORREÇÃO: Adicionar .promise() antes de .query()
+        const [rows] = await connection.promise().query('SELECT status FROM comando_teste WHERE id = ?', [id]);
 
         if (!rows.length) {
             // Comando não encontrado
@@ -352,7 +353,8 @@ router.post('/comando-consumido', async (req, res) => {
         }
 
         // Se o status for 'pendente', atualiza para 'executado'
-        const [updateResult] = await connection.query(`
+        // CORREÇÃO: Adicionar .promise() antes de .query()
+        const [updateResult] = await connection.promise().query(`
             UPDATE comando_teste
             SET status = 'executado', executado_em = NOW()
             WHERE id = ? AND status = 'pendente' -- Garante que só atualiza se ainda for 'pendente'
@@ -360,8 +362,8 @@ router.post('/comando-consumido', async (req, res) => {
 
         if (updateResult.affectedRows === 0) {
              // Rara, mas pode acontecer se outro processo atualizou entre o SELECT e o UPDATE
-            console.warn(`[ALERTA] Conflito ao atualizar comando ${id}: 0 linhas afetadas.`);
-            return res.status(409).json({ ok: false, message: "Conflito ao atualizar status do comando." });
+             console.warn(`[ALERTA] Conflito ao atualizar comando ${id}: 0 linhas afetadas.`);
+             return res.status(409).json({ ok: false, message: "Conflito ao atualizar status do comando." });
         }
 
         console.log(`Comando ${id} marcado como executado.`);
