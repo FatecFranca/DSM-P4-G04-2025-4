@@ -414,7 +414,7 @@ router.post('/resultadosTestes', async (req, res) => {
         // --- PREVENÇÃO DE DUPLICIDADE ---
         // Verifica se já existe um resultado para este usuário, copo e data de início.
         // Isso é crucial para evitar que o reenvio do ESP32 crie registros duplicados.
-        const [existe] = await connection.query(
+        const [existe] = await connection.promise().query(
           "SELECT id FROM Teste WHERE usuario_id=? AND copo_id=? AND data_inicio=?",
           [usuario_id, copo_id, data_inicio_mysql]
         );
