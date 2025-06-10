@@ -277,7 +277,7 @@ router.post('/testes', async (req, res) => {
     try {
         // Insere novo comando na tabela comando_teste com status 'pendente'
         // A coluna 'criado_em' deve ter um DEFAULT CURRENT_TIMESTAMP no banco
-        await connection.query(`
+        await connection.promise().query(`
             INSERT INTO comando_teste (usuario_id, copos, tipo, status)
             VALUES (?, ?, ?, 'pendente')
         `, [usuario_id, JSON.stringify(copos), tipo]);
