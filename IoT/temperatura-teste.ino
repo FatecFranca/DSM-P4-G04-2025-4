@@ -3,7 +3,7 @@
 #include <WiFi.h>
 #include <HTTPClient.h>
 #include <ArduinoJson.h> // Certifique-se de ter a biblioteca instalada (v6 ou superior)
-
+#include <LittleFS.h>
 // Configurações de WiFi
 const char* ssid = "PocoX6"; // Substitua pelo seu SSID
 const char* password = "12345678"; // Substitua pela sua senha
@@ -31,13 +31,20 @@ int numCopos = 0; // Número de copos neste teste (máx 3)
 bool testRunning = false; // Flag para indicar se um teste está em execução
 unsigned long startTime; // Tempo em millis() quando o teste começou
 String startTimestamp; // Timestamp de início do teste (ISO 8601)
-
-
-float temperatureData[13][3];
-
-// Intervalo para verificar novos comandos na API (em milissegundos)
 unsigned long lastCommandCheck = 0;
 const unsigned long commandPollInterval = 5000; // 5 segundos
+unsigned long lastPendingSendAttempt = 0;
+const unsigned long pendingSendInterval = 30000; // Tenta enviar dados pendentes a cada 30 segundos
+unsigned long lastWifiCheck = 0; // Para verificar o WiFi
+const unsigned long wifiCheckInterval = 10000; // Intervalo de verificação do WiFi
+bool t0_captured = false; // Para verificar se T0 foi capturado
+int lastMinuteLogged = -1; // Para armazenar o último minuto logado
+
+
+// Diretório no LittleFS para armazenar dados de envio pendente
+const char* PENDING_DIR = "/pending";
+
+float temperatureData[13][3];
 
 // Calcula o coeficiente K de decaimento de temperatura
 float calcularK(float t0, float tFinal, float tempAmbiente, float tempoHoras) {
@@ -99,48 +106,144 @@ bool enviarComRetry(const String& endpoint, const String& payload, int tentativa
 // Consulta a hora atual em um servidor NTP via API externa (worldtimeapi)
 String getCurrentTime() {
     HTTPClient http;
-    http.begin("http://worldtimeapi.org/api/ip"); // Usa o IP público do ESP32 para determinar a timezone
-    http.setConnectTimeout(5000); // Timeout de conexão
-    http.setTimeout(5000); // Timeout de leitura
-
-    int code = http.GET();
     String out = "";
+    const int maxAttempts = 10; // Número máximo de tentativas
+    int attempts = 0; // Contador de tentativas
 
-    if (code == 200) {
-        String response = http.getString();
-        StaticJsonDocument<512> doc; // Tamanho ajustado
-        DeserializationError error = deserializeJson(doc, response);
+    while (attempts < maxAttempts) {
+        // Configura o endpoint para solicitar o horário da timezone America/Sao_Paulo
+        http.begin("http://worldtimeapi.org/api/timezone/America/Sao_Paulo");
+        http.setConnectTimeout(2000); // Timeout de conexão
+        http.setTimeout(2000); // Timeout de leitura
 
-        if (!error) {
-            String datetime = doc["datetime"].as<String>();
-            int tPos = datetime.indexOf('T');
-            int dotPos = datetime.indexOf('.');
-            if (tPos != -1 && dotPos != -1) {
-                out = datetime.substring(0, tPos) + " " + datetime.substring(tPos + 1, dotPos);
-            } else if (tPos != -1) { // Caso não tenha milissegundos
-                 int plusPos = datetime.indexOf('+');
-                 int minusPos = datetime.indexOf('-'); // Para offset negativo
-                 int tzPos = (plusPos != -1) ? plusPos : ((minusPos != -1) ? minusPos : -1);
+        int code = http.GET();
 
-                 if (tzPos != -1) {
-                     out = datetime.substring(0, tPos) + " " + datetime.substring(tPos + 1, tzPos);
-                 } else { // Sem milissegundos e sem offset? (improvável, mas fallback)
-                     out = datetime.substring(0, tPos) + " " + datetime.substring(tPos + 1);
-                 }
+        if (code == 200) {
+            String response = http.getString();
+            StaticJsonDocument<512> doc; // Tamanho ajustado
+            DeserializationError error = deserializeJson(doc, response);
+
+            if (!error) {
+                String datetime = doc["datetime"].as<String>();
+                int tPos = datetime.indexOf('T');
+                int dotPos = datetime.indexOf('.');
+                if (tPos != -1 && dotPos != -1) {
+                    out = datetime.substring(0, tPos) + " " + datetime.substring(tPos + 1, dotPos);
+                } else if (tPos != -1) { // Caso não tenha milissegundos
+                    int plusPos = datetime.indexOf('+');
+                    int minusPos = datetime.indexOf('-'); // Para offset negativo
+                    int tzPos = (plusPos != -1) ? plusPos : ((minusPos != -1) ? minusPos : -1);
+
+                    if (tzPos != -1) {
+                        out = datetime.substring(0, tPos) + " " + datetime.substring(tPos + 1, tzPos);
+                    } else { // Sem milissegundos e sem offset? (improvável, mas fallback)
+                        out = datetime.substring(0, tPos) + " " + datetime.substring(tPos + 1);
+                    }
+                }
+                Serial.printf("Timestamp obtido (America/Sao_Paulo): %s\n", out.c_str()); // Log ajustado
+                break; // Sai do loop se obtiver sucesso
+            } else {
+                Serial.printf("Erro ao analisar JSON do WorldTimeAPI: %s\n", error.c_str());
             }
-             Serial.printf("Timestamp obtido: %s\n", out.c_str());
         } else {
-            Serial.printf("Erro ao analisar JSON do WorldTimeAPI: %s\n", error.c_str());
-            // Fallback: tentar obter hora local do ESP32 se NTP estiver configurado (não neste código)
-        }
-    } else {
-        Serial.printf("Falha ao obter hora do WorldTimeAPI (HTTP %d)\n", code);
+            Serial.printf("Falha ao obter hora do WorldTimeAPI (HTTP %d) para America/Sao_Paulo. Tentativa %d de %d\n", code, attempts + 1, maxAttempts);
+        }   
+        http.end(); // Finaliza a conexão
+        attempts++;
+        delay(2000); // Espera 2 segundos antes da próxima tentativa
     }
-    http.end();
+    if (attempts == maxAttempts) {
+        Serial.println("Falha ao obter hora após várias tentativas.");
+    }
     return out; // Retorna a string formatada ou vazia em caso de erro
 }
 
 
+// Salva um payload JSON em um arquivo no LittleFS para envio posterior
+void salvarDadosPendentes(const String& payload, int cmdId, int cupId) {
+    // Monta LittleFS (false para não formatar se falhar)
+    if (!LittleFS.begin(false)) {
+        Serial.println("LittleFS Mount Failed! Cannot save pending data.");
+        return;
+    }
+
+    // Cria um nome de arquivo único (ex: /pending/cmd_123_cup_1_1678886400000.json)
+    // Usa millis() para garantir unicidade, pode usar timestamp real se disponível e confiável
+    String filename = String(PENDING_DIR) + "/cmd_" + cmdId + "cup" + cupId + "_" + millis() + ".json";
+
+    Serial.printf("Salvando dados pendentes para %s...\n", filename.c_str());
+
+    File file = LittleFS.open(filename, FILE_WRITE);
+    if (!file) {
+        Serial.println("Falha ao abrir arquivo para escrita no LittleFS.");
+        LittleFS.end(); // Desmonta LittleFS
+        return;
+    }
+
+    if (file.print(payload)) {
+        Serial.println("Dados salvos com sucesso no LittleFS.");
+    } else {
+        Serial.println("Falha ao escrever dados no arquivo LittleFS.");
+    }
+
+    file.close(); // Fecha o arquivo
+    LittleFS.end(); // Desmonta LittleFS
+}
+
+void enviarDadosPendentes() {
+    if (WiFi.status() != WL_CONNECTED) {
+        return; // Não tenta enviar se não houver WiFi
+    }
+    // Monta LittleFS (false para não formatar se falhar)
+    if (!LittleFS.begin(false)) {
+        Serial.println("LittleFS Mount Failed! Cannot send pending data.");
+        return;
+    }
+    File root = LittleFS.open(PENDING_DIR);
+    if (!root) {
+        Serial.printf("Falha ao abrir diretório %s\n", PENDING_DIR);
+        LittleFS.end();
+        return;
+    }
+    if (!root.isDirectory()) {
+        Serial.printf("%s não é um diretório\n", PENDING_DIR);
+        root.close();
+        LittleFS.end();
+        return;
+    }
+    Serial.println("\nVerificando dados pendentes para envio...");
+    File file = root.openNextFile();
+    while (file) {
+        if (!file.isDirectory()) { // Processa apenas arquivos, ignora subdiretórios
+            String filename = file.name();
+            String filePath = String(PENDING_DIR) + "/" + filename;
+            Serial.printf("Encontrado arquivo pendente: %s\n", filePath.c_str());
+
+            String payload = "";
+            while (file.available()) {
+                payload += (char)file.read();
+            }
+            file.close(); 
+
+            String endpoint = String(apiBase) + "/resultadosTestes";
+            Serial.printf("Tentando enviar dados do arquivo %s...\n", filename.c_str());
+
+            if (enviarComRetry(endpoint, payload, 5)) {
+                Serial.printf("Dados do arquivo %s enviados com sucesso. Excluindo arquivo...\n", filename.c_str());
+                if (LittleFS.remove(filePath)) {
+                    Serial.printf("Arquivo %s excluído com sucesso.\n", filePath.c_str());
+                } else {
+                    Serial.printf("Falha ao excluir arquivo %s.\n", filePath.c_str());
+                }
+            } else {
+                Serial.printf("Falha ao enviar dados do arquivo %s após retentativas. Deixando para próxima tentativa.\n", filename.c_str());
+            }
+        }
+        file = root.openNextFile(); 
+    }
+    root.close(); 
+    LittleFS.end(); 
+}
 
 void setup() {
     Serial.begin(115200); // Inicializa a comunicação serial para logs
@@ -171,61 +274,118 @@ void setup() {
     sensors.begin(); // Inicializa a biblioteca DallasTemperature
     int deviceCount = sensors.getDeviceCount();
     Serial.printf("Sensores encontrados: %d\n", deviceCount);
+
+        // Inicializa LittleFS
+    Serial.println("Inicializando LittleFS...");
+    // Tenta montar o sistema de arquivos. true formata se a montagem falhar pela 1a vez.
+    if (!LittleFS.begin(true)) {
+        Serial.println("LittleFS Mount Failed!");
+        // Considere adicionar uma ação de erro mais robusta aqui
+        // (ex: reiniciar, tentar novamente, alertar)
+        return; // Sai do setup ou lida com o erro
+    }
+    Serial.println("LittleFS montado com sucesso.");
+
+    // Cria o diretório para dados pendentes se não existir
+    if (!LittleFS.exists(PENDING_DIR)) {
+        Serial.printf("Diretório %s não encontrado. Criando...\n", PENDING_DIR);
+        if (LittleFS.mkdir(PENDING_DIR)) {
+            Serial.printf("Diretório %s criado com sucesso.\n", PENDING_DIR);
+        } else {
+            Serial.printf("Falha ao criar diretório %s.\n", PENDING_DIR);
+            // Considere lidar com esta falha (ex: não salvar dados pendentes)
+        }
+    } else {
+        Serial.printf("Diretório %s já existe.\n", PENDING_DIR);
+    }
+
+    // Desmonta LittleFS após inicialização para liberar recursos
+    LittleFS.end();
+    Serial.println("LittleFS desmontado.");
+
+    delay(10); // Pequeno delay para estabilidade do ESP32
 }
 
 void loop() {
-    // Garante que o WiFi está conectado antes de tentar qualquer comunicação HTTP
+    // Verifica e tenta reconectar o WiFi se necessário
     if (WiFi.status() != WL_CONNECTED) {
-        Serial.println("WiFi desconectado. Tentando reconectar...");
-        WiFi.reconnect();
-        delay(5000); // Espera antes de verificar novamente
-        return; // Pula o resto do loop até reconectar
+        unsigned long currentMillis = millis();
+        if (currentMillis - lastWifiCheck > wifiCheckInterval) {
+            lastWifiCheck = currentMillis;
+            Serial.println("WiFi desconectado. Tentando reconectar...");
+            WiFi.disconnect();
+            WiFi.reconnect();
+        }
+        // Se estiver desconectado, pula o resto do loop que depende de rede,
+        // exceto a lógica de teste em andamento que não depende de rede (medição de temperatura).
+        // A busca de comando e envio de pendentes só ocorrerão quando reconectar.
+        // Continua a execução do teste localmente (coleta de temperaturas).
     }
 
-    // Verifica por comando pendente na API se não houver teste em execução
-    // e se o intervalo de polling já passou.
-    if (!testRunning && (millis() - lastCommandCheck >= commandPollInterval)) {
-        buscarComando(); // Chama a função para buscar comando
-        lastCommandCheck = millis(); // Atualiza o tempo da última checagem
+    // --- Lógica para enviar dados pendentes ---
+    unsigned long currentMillis = millis();
+    if (currentMillis - lastPendingSendAttempt >= pendingSendInterval) {
+        lastPendingSendAttempt = currentMillis;
+        // A função enviarDadosPendentes já verifica se o WiFi está conectado
+        enviarDadosPendentes();
     }
 
-    // --- Lógica de Execução do Teste ---
-    if (testRunning) {
-        unsigned long elapsedTime = (millis() - startTime) / 1000; // Tempo decorrido em segundos
-
-        // O teste dura 120 minutos (7200 segundos)
-        if (elapsedTime <= 7200) {
-            // Calcula o índice da medição (0 para T0, 1 para T10, ..., 12 para T120)
-            // A medição T(n*10) ocorre no tempo n*600 segundos.
-            int index = elapsedTime / 600; // Ex: 600s/600=1 (T10), 1200s/600=2 (T20), ..., 7200s/600=12 (T120)
-
-            // Verifica se é hora de fazer uma medição (a cada 10 minutos = 600 segundos)
-            // e se o índice está dentro dos limites do array temperatureData (0 a 12)
-            if (elapsedTime % 600 == 0 && index < 13) {
-                capturarTemperaturas(index); // Chama a função para ler e armazenar temperaturas
-
-            }
-             if (elapsedTime > 0 && elapsedTime % 60 == 0 && elapsedTime <= 7200) {
-                 Serial.printf("Teste em andamento: %lu minutos decorridos.\n", elapsedTime / 60);
-             }
-
-        } else { // Teste terminou (passou de 120 minutos)
-            Serial.println("\nTeste concluído (120 minutos).");
-            testRunning = false; // Para o teste
-
-            // Envia os dados coletados para a API
-            enviarDados();
-
-            // Opcional: Resetar variáveis de estado do teste
-            comandoId = -1;
-            usuarioId = -1;
-            tipoTeste = "";
-            numCopos = 0;
-            // Limpar temperatureData se necessário
+    // --- Lógica para buscar comando ---
+    // Só busca comando se não houver teste em execução E se o WiFi estiver conectado
+    if (!testRunning && WiFi.status() == WL_CONNECTED) {
+        if (currentMillis - lastCommandCheck >= commandPollInterval) {
+            lastCommandCheck = currentMillis;
+            buscarComando();
         }
     }
 
-    delay(50); // Pequeno delay para estabilidade do ESP32
+    // --- Lógica do Teste em Execução ---
+    if (testRunning) {
+        unsigned long elapsedTime = currentMillis - startTime; // Tempo decorrido desde o início do teste
+
+        if (elapsedTime == 0 && !t0_captured) { // Captura T0 exatamente no início
+             capturarTemperaturas(0); // Índice 0 para T0
+             t0_captured = true; // Marca que T0 foi capturado
+             lastMinuteLogged = 0; // Reseta o log de minutos para T0
+        }
+        // Medições T10 a T120 (a cada 10 minutos = 600 segundos)
+        else if (t0_captured && elapsedTime > 0 && (elapsedTime % 600000 == 0)) { // 600000 ms = 10 minutos
+             int measurementIndex = elapsedTime / 600000; // 10min=1, 20min=2, ..., 120min=12
+             if (measurementIndex >= 1 && measurementIndex <= 12) {
+                 // Use uma flag para garantir que a medição para este intervalo ocorra apenas uma vez
+                 static int lastMeasurementIndex = -1;
+                 if (measurementIndex > lastMeasurementIndex) {
+                     capturarTemperaturas(measurementIndex);
+                     lastMeasurementIndex = measurementIndex;
+                     lastMinuteLogged = measurementIndex * 10; // Atualiza o último minuto logado
+                 }
+             }
+        }
+
+        // Lógica para finalizar o teste após 120 minutos (120 * 60 * 1000 ms)
+        if (testRunning && elapsedTime >= (120 * 60 * 1000UL)) { // Use UL para unsigned long literal
+            Serial.println("\nTeste concluído (120 minutos atingidos). Enviando dados...");
+            enviarDados(); // Envia todos os dados coletados
+            testRunning = false; // Termina o teste
+            comandoId = -1; // Reseta IDs
+            usuarioId = -1;
+            numCopos = 0;
+            t0_captured = false; // Reseta a flag para o próximo teste
+            lastMinuteLogged = -1; // Reseta o log de minutos
+            // Resetar lastMeasurementIndex se usado
+            static int lastMeasurementIndex = -1; // Declared static inside loop
+            lastMeasurementIndex = -1; // Reset for next test
+            Serial.println("Teste finalizado. Aguardando novo comando...");
+        }
+
+        // Opcional: Logar o tempo decorrido a cada minuto
+        int elapsedMinutes = elapsedTime / 60000;
+        if (elapsedMinutes > lastMinuteLogged) {
+             Serial.printf("Teste em andamento: %d minutos decorridos...\n", elapsedMinutes);
+             lastMinuteLogged = elapsedMinutes;
+        }
+    } 
+    delay(10); // Pequeno delay para evitar watchdog timer reset e manter estabilidade
 }
 
 void buscarComando() {
@@ -283,17 +443,14 @@ void buscarComando() {
                  }
                  Serial.printf("Comando ID: %d, Usuário ID: %d, Tipo: %s, Copos: %d\n",
                                comandoId, usuarioId, tipoTeste.c_str(), numCopos);
-
                  Serial.println("Marcando comando como consumido na API...");
                  marcarConsumido(comandoId); 
 
             } else {
                  Serial.printf("Erro ao analisar JSON do array de copos: %s\n", coposError.c_str());
             }
-
         } else {
             Serial.println("Nenhum comando pendente encontrado na API.");
-            // -------------------------------------------------
         }
     } else {
         Serial.printf("Erro ao analisar JSON da resposta da API: %s\n", error.c_str());
@@ -302,13 +459,10 @@ void buscarComando() {
      Serial.println("------------------------------------");
 }
 
-// Notifica a API que o comando foi consumido e, se sucesso, inicia o teste
 void marcarConsumido(int id) {
     String endpoint = String(apiBase) + "/comando-consumido";
     String payload = String("{\"id\":") + id + "}";
-
     bool sucesso = enviarComRetry(endpoint, payload, 3); // Tenta enviar 3 vezes
-
     if (sucesso) {
         Serial.println("Comando marcado como consumido com sucesso na API.");
         iniciarTeste();
@@ -317,37 +471,49 @@ void marcarConsumido(int id) {
     }
 }
 
-// Inicia o ciclo de teste localmente no ESP32
+
 void iniciarTeste() {
     Serial.println("Preparando para iniciar teste...");
-    startTimestamp = getCurrentTime(); // Obtém o timestamp de início do teste
-
+    startTimestamp = getCurrentTime(); 
     if (startTimestamp.isEmpty()) {
         Serial.println("Falha ao obter timestamp de início. Não é possível iniciar o teste.");
-        // Não inicia o teste se não conseguiu obter a hora
-        // Poderia tentar novamente obter a hora ou abortar completamente
         return;
     }
-
-    testRunning = true; // Define a flag para iniciar o loop de medição
-    startTime = millis(); // Registra o tempo de início usando millis()
-
-    // Zera o array de dados de temperatura antes de começar
+    testRunning = true; 
+    startTime = millis();
     for (int i = 0; i < 13; i++) {
         for (int j = 0; j < 3; j++) {
             temperatureData[i][j] = -999.0; // Usa um valor que indica 'não medido'
         }
     }
-
     Serial.printf("Teste iniciado para Usuário %d, Tipo %s, Copos %d. Início: %s\n",
                   usuarioId, tipoTeste.c_str(), numCopos, startTimestamp.c_str());
     Serial.println("Iniciando captura da temperatura T0...");
-
-    // Captura a primeira medição (T0) imediatamente
-    capturarTemperaturas(0); // O índice 0 corresponde a T0
+    capturarTemperaturas(0); 
+    bool testeConcluido = true; 
+    if (testeConcluido) {
+        String payload = criarPayloadDeTemperaturas(); 
+        salvarDadosPendentes(payload, comandoId, numCopos); 
+    } else {
+        Serial.println("Teste não concluído, dados não salvos.");
+    }
 }
 
-// Captura as temperaturas dos sensores e armazena no array temperatureData
+
+String criarPayloadDeTemperaturas() {
+    String payload = "{ \"dados\": [";
+    for (int i = 0; i < 13; i++) {
+        for (int j = 0; j < numCopos; j++) {
+            payload += String(temperatureData[i][j]);
+            if (j < numCopos - 1 || i < 12) { 
+                payload += ",";
+            }
+        }
+    }
+    payload += "] }"; 
+    return payload;
+}
+
 void capturarTemperaturas(int index) {
     if (index < 0 || index >= 13) {
         Serial.printf("Erro: Índice de medição inválido (%d).\n", index);
@@ -359,10 +525,10 @@ void capturarTemperaturas(int index) {
     }
 
     Serial.printf("Capturando temperaturas para medição T%d (índice %d)...\n", index * 10, index);
-    sensors.requestTemperatures(); // Solicita as leituras de todos os sensores
+    sensors.requestTemperatures();
 
     for (int i = 0; i < numCopos; i++) {
-        float tempC = sensors.getTempC(sensores[i]); // Lê a temperatura de um sensor específico
+        float tempC = sensors.getTempC(sensores[i]); 
 
         if (tempC != DEVICE_DISCONNECTED_C) { // DEVICE_DISCONNECTED_C é -127.0
             temperatureData[index][i] = tempC;
@@ -374,27 +540,22 @@ void capturarTemperaturas(int index) {
     }
 }
 
-// Envia os dados coletados durante o teste para a API
 void enviarDados() {
     String endpoint = String(apiBase) + "/resultadosTestes";
-    String endTimestamp = getCurrentTime(); // Obtém o timestamp de fim do teste
+    String endTimestamp = getCurrentTime(); 
 
     if (endTimestamp.isEmpty()) {
          Serial.println("AVISO: Não foi possível obter timestamp de fim. Enviando dados com data de fim vazia.");
-         // Decide se envia mesmo assim ou aborta
     }
 
     Serial.println("\nEnviando resultados do teste para a API...");
 
-    // Loop através de cada copo para enviar seus dados individualmente
     for (int i = 0; i < numCopos; i++) {
-        float t0 = temperatureData[0][i];       // Temperatura no início (índice 0)
-        float tFinal = temperatureData[12][i];  // Temperatura após 120 min (índice 12)
-        // TODO: Obter temperatura ambiente de um sensor dedicado ou valor fixo
-        float tempAmbiente = 25.0;              // Valor fixo temporário para temperatura ambiente
-        float tempoHoras = 2.0;                 // 120 minutos = 2 horas
+        float t0 = temperatureData[0][i];      
+        float tFinal = temperatureData[12][i];  
+        float tempAmbiente = 25.0;            
+        float tempoHoras = 2.0;  
 
-        // Calcula o coeficiente K para este copo
         float k = calcularK(t0, tFinal, tempAmbiente, tempoHoras);
 
         // Constrói o payload JSON para este copo
@@ -405,22 +566,21 @@ void enviarDados() {
         payload += "\"data_inicio\":\"" + startTimestamp + "\","; // Timestamp do início do teste
         payload += "\"data_fim\":\"" + endTimestamp + "\",";     // Timestamp do fim do teste
 
-        // Adiciona os dados de temperatura T0 a T120
         for (int j = 0; j < 13; j++) {
             payload += "\"t" + String(j * 10) + "\":" + String(temperatureData[j][i], 2); // Formata com 2 casas decimais
-            payload += ","; // Adiciona vírgula após cada temperatura
+            payload += ","; 
         }
-        // Adiciona o valor de K (sem vírgula após ele, pois é o último campo)
-        payload += "\"k\":" + String(k, 6); // Formata K com 6 casas decimais para precisão
-        payload += "}"; // Fecha o objeto JSON
+ 
+        payload += "\"k\":" + String(k, 6); 
+        payload += "}"; 
 
-        // Envia o payload para a API com retentativas
         Serial.printf("Enviando dados para Copo %d (ID %d)...\n", i+1, coposIds[i]);
         bool sucesso = enviarComRetry(endpoint, payload, 5); // Tenta enviar 5 vezes
 
         if (!sucesso) {
             Serial.printf("Falha no envio dos dados do Copo %d (ID %d) após retentativas.\n", i+1, coposIds[i]);
-            // TODO: Implementar lógica de recuperação aqui (ex: salvar em SD card, tentar mais tarde)
+            // * SALVA OS DADOS NO LITTLEFS SE O ENVIO FALHAR *
+            salvarDadosPendentes(payload, comandoId, coposIds[i]);
         } else {
             Serial.printf("Dados do Copo %d (ID %d) enviados com sucesso.\n", i+1, coposIds[i]);
         }
