@@ -132,4 +132,4 @@ DB_PORT=3306
 - VM_PASSWORD=FatecFranca123*
 ```
 
-### Estas informações somente foram divulgadas quando a VM já não estava mais no ar!
+### Em razão de custos, a VM ficará ligada apenas para a demostração, no contexto da projeto interdisiplinar.
