@@ -251,7 +251,6 @@ const Input = styled.input`
     cursor: not-allowed;
   }
 `;
-
 const Button = styled.button`
   background-color: black;
   color: white;
