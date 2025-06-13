@@ -1,13 +1,25 @@
 # API - ThermoTrack ⚙️
 
 ## Visão Geral
-Este diretório contém o código-fonte e a documentação da API backend para o projeto ThermoTrack. A API é responsável por receber dados dos dispositivos IoT (como os sensores de temperatura com ESP32), armazená-los em um banco de dados e fornecer endpoints para que o frontend web e outras aplicações possam consumir e interagir com essas informações.
+Este diretório contém o código-fonte e a documentação da API backend para o projeto ThermoTrack.
+A API é responsável por receber dados dos dispositivos IoT (como os sensores de temperatura com ESP32), armazená-los em um banco de dados e fornecer endpoints para que o frontend web e outras aplicações possam consumir e interagir com essas informações.
 
-## Tecnologias
+## Tecnologias Utilizadas
 - **Linguagem/Runtime:** Node.js 
-- **Framework (Provável):** Express.js
-- **Banco de Dados (Provável):** MySQL(porta 3306)
-- **Ambiente de Hospedagem:** Máquina Virtual (VM) no Microsoft Azure. Esta VM também será usada para o deploy do front-end web.
+- **Framework:** Express.js
+- **Banco de Dados:** MySQL(porta 3306)
+- **Template:** EJS (renderizar páginas dinâmicas no front end)
+- **Mecanismo de Segurança:** CORS (controlar recursos entre diferentes domínios)
+- **Ambiente de Hospedagem:** Máquina Virtual (VM) no Microsoft Azure.
+
+## Integrantes do Grupo
+
+
+- **Wilton Monteiro**- Designer/Front-end
+- **Thiago Resende** - Full-stack
+- **Danilo Benedetti** - Back-end/IoT
+- **Gustavo Monteiro** - Front-end
+
 
 ## Informações da VM Azure
 - **Sistema Operacional:** Linux (Ubuntu 24.04 LTS)
@@ -38,8 +50,6 @@ Este diretório contém o código-fonte e a documentação da API backend para o
     Se houveram mudanças no `package.json` ou é o primeiro deploy:
     ```bash
     npm install
-    # ou, se usarem Yarn:
-    # yarn install
     ```
 
 3.  **Configurar Variáveis de Ambiente:**
