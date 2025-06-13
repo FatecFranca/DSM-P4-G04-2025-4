@@ -70,7 +70,7 @@ A API é responsável por receber dados dos dispositivos IoT (como os sensores d
 ## Endpoints da API
 O endereço base para acessar a API é: `http://13.68.97.186:4000`
 
-### Exemplo de Endpoint já existente:
+### Exemplo de Endpoint:
 -   **`GET /usuarios`**: Retorna uma lista de usuários cadastrados.
     -   **Exemplo de Resposta (JSON):**
         ```json
@@ -93,7 +93,8 @@ O endereço base para acessar a API é: `http://13.68.97.186:4000`
         ]
         ```
 
-**(Aqui vocês devem listar todos os outros endpoints que a API terá, por exemplo: `POST /dados_iot`, `GET /dados_iot/recente`, etc., com detalhes sobre métodos, parâmetros e exemplos de corpos de requisição/resposta.)**
+**Listagem completa de Endpoints da API**
+![image](https://github.com/user-attachments/assets/8362b32f-3687-426d-ae14-f07ab8f12b16)
 
 ## Configuração do Banco de Dados
 - A API se conecta a um banco de dados MySQL (porta `3306`).
