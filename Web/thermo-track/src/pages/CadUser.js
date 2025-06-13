@@ -243,10 +243,9 @@ const Input = styled.input`
   margin: 10px 0;
   border: 2px solid black;
   border-radius: 10px;
-  background-color: ${theme.colors.secondary};
-  color: ${theme.colors.text.light};
-  opacity: 0.8;
-
+  background-color: #f5f5f5; /* Fundo mais claro para contraste */
+  color: #222;               /* Cor do texto digitado */
+  /* opacity: 0.8; */         /* Removido para não afetar o placeholder e o cursor */
   &:disabled {
     opacity: 0.6;
     cursor: not-allowed;
