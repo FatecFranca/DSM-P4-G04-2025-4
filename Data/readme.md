@@ -1,101 +1,126 @@
-# Análise Estatística dos Dados de Desempenho dos Copos Térmicos
+# Análise de Dados e Dashboard - ThermoTrack
 
-Para este projeto, definimos cinco tipos de copos — *Copo Stanley*, dois concorrentes (*Coleman*, *iKEG*) e duas réplicas de qualidade inferior (*Réplica A*, *Réplica B*). Em cada teste, registra-se o tipo de bebida (quente ou fria), a temperatura inicial e medições de temperatura a cada 10 minutos por 2 horas (até 120 min). Assumimos **volume padronizado de água** e temperatura ambiente constante de 25 °C. Para modelar o comportamento térmico, usamos uma função exponencial do tipo
+![Python](https://img.shields.io/badge/Python-3776AB?style=for-the-badge&logo=python&logoColor=white)
+![Streamlit](https://img.shields.io/badge/Streamlit-FF4B4B?style=for-the-badge&logo=streamlit&logoColor=white)
+![Pandas](https://img.shields.io/badge/Pandas-150458?style=for-the-badge&logo=pandas&logoColor=white)
+![Plotly](https://img.shields.io/badge/Plotly-3F4F75?style=for-the-badge&logo=plotly&logoColor=white)
+![Scikit-learn](https://img.shields.io/badge/scikit--learn-F7931A?style=for-the-badge&logo=scikit-learn&logoColor=white)
 
-$$
-T(t) = 25 + (T_0 - 25) \, e^{-k t},
-$$
+Este diretório contém os recursos responsáveis pela análise de dados e pela visualização da performance dos copos térmicos. O coração desta pasta é um dashboard interativo criado com **Streamlit**, que permite explorar os dados coletados de forma visual e estatística.
 
-onde $T_0$ é a temperatura inicial e $k$ é o coeficiente de perda de calor (menor para melhor isolamento). Definimos $k$ baixo para o Stanley (bom isolamento) e maior para as réplicas (piores). Abaixo, mostramos o código Python que gera os 50 testes simulados com ruído realista:
+---
 
-## A [planilha CSV](https://github.com/ThiagoResende88/ThermoTrack/blob/main/Data/copos_termicos.csv) contém o resultado dos testes feitos e está estruturada com asseguintes colunas:
+## 📊 Sobre o Dashboard
 
-* **Copo:** Nome do copo (Stanley, Coleman, IKEG, Réplica A/B).
-* **Teste:** Identificador do teste (1–10).
-* **Bebida:** Quente ou Fria.
-* **T0:** Temperatura inicial da bebida (°C).
-* **T10, T20, …, T120:** Leituras de temperatura a cada 10 minutos.
-* **Perda\_media\_10min:** Variação média de temperatura (°C) por intervalo de 10 minutos.
-* **Tempo\_1Grau:** Tempo estimado (min) para chegar a \~26°C (ou \~24°C) pelo ajuste exponencial.
+O dashboard `dashboard_thermotrack.py` foi projetado para responder à pergunta principal do projeto: **Qual a eficiência térmica de um copo?**
 
-## Testes Estatísticos 
+Para isso, ele carrega os dados de medições (neste exemplo, do arquivo `copos_termicos.csv`) e aplica uma série de análises estatísticas e visualizações para avaliar como a temperatura de uma bebida varia ao longo do tempo.
 
-### Regressão Exponencial e Projeção de Tempo
+### Como Funciona
 
-Para cada teste, aplicamos regressão exponencial linearizando os dados: definimos $y(t) = T(t) - 25$ e usamos `np.polyfit` em $\ln|y|$ vs $t$ para estimar $k$. Com o coeficiente $k$ obtido, calculamos o tempo necessário para o copo atingir praticamente a temperatura ambiente (dentro de 1 °C), resolvendo
+1.  **Fonte de Dados:** O script lê um arquivo CSV contendo as medições de temperatura ao longo do tempo para diferentes copos e tipos de bebida (Quente/Fria).
+2.  **Interface Interativa:** O usuário pode selecionar um **modelo de copo** e um **tipo de bebida** através de filtros na barra lateral.
+3.  **Geração de Análise:** Ao clicar em "Gerar Gráfico", o dashboard filtra os dados correspondentes e exibe um relatório completo de performance.
+4.  **Acesso via URL:** O dashboard também pode ser acessado com os filtros pré-selecionados através de parâmetros na URL. Por exemplo: `/?copo=Stanley&bebida=Quente`.
 
-$$
-\lvert T(t) - 25\rvert = 1^\circ{\rm C} \implies t = \frac{\ln(|T_0 - 25|/1)}{k}.
-$$
+---
 
-Essa projeção aparece na coluna `Tempo_1Grau`. O ajuste exponencial descreve bem o isolamento térmico: copos com menor $k$ (ex. Stanley) demoram muito mais para igualar 25 °C. Abaixo mostramos um gráfico de dispersão que ilustra a correlação entre a temperatura inicial e o tempo estimado para atingir 25 °C; nota-se correlação positiva (quanto maior $T_0$, maior o tempo).
+## 📈 Visualizações e Análises
 
-![URL_da_Imagem](https://github.com/FatecFranca/DSM-P4-G04-2025-4/blob/main/Data/imagens/Code_Generated_Image%20(1).png)
-**Imagem ilustrativa**
+O dashboard apresenta a análise de performance em várias seções:
 
-### Análise de Distribuições
+### 1. Métricas Principais
 
-Para análise estatística, definimos variáveis independentes e dependentes adequadas:
+Logo no topo, são exibidos quatro cartões com os indicadores mais importantes do teste:
 
-* **Distribuição Normal:** As temperaturas iniciais de cada grupo (hot ou cold separadamente) podem ser modeladas por uma distribuição normal (ao redor de 85 °C para quente e 5 °C para fria). Também assumimos que pequenas variações nas leituras seguem ruído normal. Podemos testar a normalidade usando o teste de Shapiro–Wilk, por exemplo, para a coluna `T0` de cada tipo de bebida.
-* **Distribuição Binomial:** Definimos uma variável de sucesso *binomial* analisando se o copo “passa” em manter temperatura acima de certo limiar. Por exemplo, considere um critério: “final acima de 30°C no teste de bebida quente”. Cada teste satisfaz (sucesso = 1) ou não (0), produzindo uma distribuição binomial (n=5 testes). Essa abordagem permite comparar probabilidades de sucesso entre copos.
-* **Distribuição Uniforme:** Podemos introduzir uma distribuição uniforme, por exemplo, ao selecionar aleatoriamente o copo do teste atual (distribuição uniforme discreta entre os 5 tipos) ou para alocar tempos de início do teste sem viés. Ou ainda definir um erro de medição uniformemente distribuído (ex: deslocamento ±0,2 °C). Isso ilustra variáveis uniformes no experimento.
+* **Temperatura Inicial:** A temperatura registrada no primeiro minuto do teste ($T_0$).
+* **Temperatura Final:** A temperatura registrada no último minuto do teste ($T_f$).
+* **Variação de Temperatura:** A diferença total de temperatura ($\Delta T = T_f - T_0$), indicando o quanto a temperatura mudou.
+* **Tempo de Análise:** A duração total do experimento em minutos.
 
-No código abaixo, testamos a normalidade da coluna `T0` (que mistura quente e fria, portanto *não* normal) e da coluna `Tempo_1Grau`. Também mostramos um histograma da distribuição de `Tempo_1Grau` por tipo de copo:
+### 2. Gráfico de Desempenho Térmico
 
-```python
-# Teste de normalidade (Shapiro-Wilk)
-_, p_T0 = shapiro(df['T0'])
-_, p_tempo = shapiro(df['Tempo_1Grau'])
-print(f'P-valor Shapiro T0: {p_T0:.3f}, Tempo_1Grau: {p_tempo:.3f}')
-```
+Este é o principal gráfico da análise. Um **gráfico de linha** que mostra a curva de decaimento (ou aquecimento) da temperatura ao longo do tempo.
 
-### Correlação e Regressão
+* **Eixo X:** Tempo (em minutos).
+* **Eixo Y:** Temperatura (em °C).
 
-Além do modelo exponencial, exploramos correlações lineares. Por exemplo, calculamos a correlação de Pearson entre a temperatura inicial `T0` e `Tempo_1Grau`:
+Ele permite visualizar de forma clara e intuitiva a taxa com que o copo perde ou ganha calor. Uma curva mais "plana" indica uma melhor performance térmica.
 
-```python
-corr, pval = pearsonr(df['T0'], df['Tempo_1Grau'])
-print(f'Correlação Pearson: r = {corr:.3f}, p = {pval:.3f}')
-```
+### 3. Análise Estatística Descritiva
 
-Encontramos correlação moderada positiva (ex.: r≈0.36, p<0.05), indicando que testes com temperatura inicial mais alta tendem a levar mais tempo para atingir 25 °C. Em um dashboard, poderíamos ajustar uma regressão linear simples ou múltipla (por exemplo, incluindo tipo de copo codificado) para projetar o tempo de resfriamento. A figura de dispersão abaixo ilustra essa relação para bebidas quentes (marcador laranja) e frias (vermelho).
+Para uma visão mais aprofundada dos dados, uma tabela de estatística descritiva é apresentada. Ela resume a distribuição dos pontos de temperatura coletados:
 
-![URL_da_Imagem](https://github.com/FatecFranca/DSM-P4-G04-2025-4/blob/main/Data/imagens/Code_Generated_Image.png)
-**Imagem ilustrativa**
+* **count:** Número total de medições.
+* **mean:** A média de temperatura durante o teste.
+* **std:** O desvio padrão, que indica a dispersão das temperaturas em torno da média.
+* **min, 25%, 50% (mediana), 75%, max:** Os quartis, que dividem os dados de temperatura em quatro partes iguais, ajudando a entender a distribuição e a centralidade dos dados.
 
-## Intervalos de Confiança
+### 4. Diagrama de Caixa (Box Plot)
 
-Podemos calcular intervalos de confiança de 95% para médias de qualquer métrica. Por exemplo, para a média do tempo até 25 °C nos testes de bebida quente do Stanley:
+O Box Plot complementa a análise descritiva, mostrando visualmente a distribuição da temperatura. Ele é excelente para:
+* Identificar a **mediana** (a linha central no retângulo).
+* Visualizar o **intervalo interquartil** (a "caixa"), onde se concentram 50% dos dados.
+* Detectar **outliers** (pontos fora das "hastes"), que podem indicar medições anômalas.
 
-```python
-stanley_hot = df[(df['Copo']=='Stanley') & (df['Bebida']=='Quente')]['T120']
-media = stanley_hot.mean()
-sd = stanley_hot.std(ddof=1)
-n = len(stanley_hot)
-tcrit = 2.776  # t para df=4 a 95%
-ci = (media - tcrit*sd/np.sqrt(n), media + tcrit*sd/np.sqrt(n))
-print(f'Média T120 (Stanley quente): {media:.1f}°C, IC95% = ({ci[0]:.1f}, {ci[1]:.1f})')
-```
+### 5. Modelo de Regressão Linear
 
-Isso produz um intervalo de confiança que quantifica a incerteza na média (pode ser aplicado a qualquer grupo ou métrica como `Tempo_1Grau`).
+Esta é a análise mais avançada do dashboard. Um **modelo de regressão linear** é treinado para encontrar a relação matemática entre o tempo e a temperatura.
 
-![URL_da_Imagem](https://github.com/FatecFranca/DSM-P4-G04-2025-4/blob/main/Data/imagens/Code_Generated_Image%20(3).png)
-**Imagem ilustrativa**
+* **Objetivo:** Criar uma equação que descreva a tendência de queda (ou aumento) da temperatura.
+* **Visualização:** Um gráfico de dispersão com os pontos de dados reais e uma linha vermelha que representa a previsão do modelo.
+* **A Equação do Modelo:** O dashboard exibe a equação da reta no formato:
+    $$ \text{Temperatura} = (a \times \text{Tempo}) + b $$
+    Onde:
+    * **`a` (coeficiente angular):** É o indicador mais importante. Representa a **taxa de variação da temperatura** por minuto. Para bebidas quentes, um valor de `a` mais próximo de zero significa que o copo é mais eficiente (perde menos calor).
+    * **`b` (intercepto):** O valor teórico da temperatura no instante zero, segundo o modelo.
+* **R-quadrado ($R^2$):** Este valor, que varia de 0 a 1, indica o quão bem o modelo linear se ajusta aos dados. Um $R^2$ próximo de 1 (ex: 0.98) significa que a variação da temperatura ao longo do tempo é muito bem explicada por uma reta, tornando o modelo confiável.
 
-### Testes de Hipótese
+### 6. Previsão de Temperatura
 
-Para comparar o desempenho de copos (p.ex. Stanley vs Réplicas), usamos testes de hipótese. Por exemplo, um teste t de duas amostras independente na temperatura final `T120` dos testes quentes:
+Utilizando a equação do modelo de regressão, o dashboard oferece uma ferramenta de previsão. O usuário pode inserir um valor de tempo (em minutos) e o modelo calculará qual a temperatura **estimada** para aquele instante futuro.
 
-```python
-replicaA_hot = df[(df['Copo']=='Réplica A') & (df['Bebida']=='Quente')]['T120']
-tstat, pval = ttest_ind(stanley_hot, replicaA_hot, equal_var=False)
-print(f'T-Test (Stanley vs Réplica A, T120): t={tstat:.2f}, p={pval:.3e}')
-```
+---
 
-Obtém-se p≈0 (p<0.001), indicando diferença estatisticamente significativa: o *Stanley* mantém muito mais calor que a *Réplica*. Testes ANOVA ou múltiplos testes t (com correção) podem ser aplicados para comparar vários grupos (e.g., Stanley vs Concorrentes vs Réplicas). Também é possível usar testes não-paramétricos (ex.: Wilcoxon, se a normalidade não se mantiver). Essas análises validam hipóteses como “há diferença de desempenho entre Stanley e genéricos”.
+## 🚀 Como Executar Localmente
 
-### Projeção do coeficiente k médio
+Para rodar este dashboard em sua máquina, siga os passos:
 
-![URL_da_Imagem](https://github.com/FatecFranca/DSM-P4-G04-2025-4/blob/main/Data/imagens/Code_Generated_Image%20(2).png)
-**Imagem ilustrativa**
+1.  **Pré-requisitos:** Certifique-se de ter o Python 3.8+ instalado.
+
+2.  **Navegue até a pasta:**
+    ```bash
+    cd Data/
+    ```
+
+3.  **Crie e ative um ambiente virtual (recomendado):**
+    ```bash
+    # Criar o ambiente
+    python -m venv venv
+
+    # Ativar no Windows
+    .\venv\Scripts\activate
+
+    # Ativar no Linux/macOS
+    source venv/bin/activate
+    ```
+
+4.  **Instale as dependências:**
+    ```bash
+    pip install -r requirements.txt
+    ```
+
+5.  **Execute o dashboard:**
+    ```bash
+    streamlit run dashboard_thermotrack.py
+    ```
+
+O dashboard será aberto automaticamente em uma nova aba do seu navegador.
+
+Imagens:
+![image](https://github.com/user-attachments/assets/d3229f89-bf58-4b76-ae9a-74d458b4d6c7)
+![image](https://github.com/user-attachments/assets/dd75974e-84f4-4c99-9a00-6eb9a23411d7)
+![image](https://github.com/user-attachments/assets/163dddca-5327-4ef7-a1c8-fe583f6f830d)
+![image](https://github.com/user-attachments/assets/c876fb63-aded-4ede-a3a1-062a08b849ce)
+![image](https://github.com/user-attachments/assets/81980021-1ca8-4401-9eba-b7acc12010c0)
+![image](https://github.com/user-attachments/assets/52cb62a4-b401-491c-93ce-e24bb01223e2)
