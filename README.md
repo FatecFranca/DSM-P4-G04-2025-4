@@ -162,7 +162,7 @@ As visualizações geradas incluem:
 ## 👥 Equipe
 Este projeto foi idealizado e desenvolvido por:
 
-👨‍💻 Danilo Benedette — Provisionamento de Servidor Web e API DataBase | [GitHub](https://github.com/DanBenedetti) 
+👨‍💻 Danilo Benedette — Provisionamento de Servidor Web e API DataBase | [LinkedIn](https://www.linkedin.com/in/danilo-benedetti-98161436b) · [GitHub](https://github.com/DanBenedetti) 
 
 👨‍💻 Gustavo Santos— Interface Web e Dashboard | [LinkedIn](https://www.linkedin.com/in/gustavo-moreira-santos-628857243/) · [GitHub](https://github.com/GustavoMSantoss)
 
