@@ -100,8 +100,10 @@ O endereço base para acessar a API é: `http://13.68.97.186:4000`
 - A API se conecta a um banco de dados MySQL (porta `3306`).
 - As credenciais de acesso (host, usuário, senha, nome do banco) devem ser configuradas no arquivo `.env`.
 - A modelagem se deu da seguinte forma:
+  
 ![NoAM](https://github.com/user-attachments/assets/3046302b-edee-497b-aa19-9b54e5093718)
-A tabela comando_teste, é uma tabela criada apenas para rotina do IoT. Quando iniciado um teste no ambiente web ou mobile,
+
+- A tabela comando_teste, é uma tabela criada apenas para rotina do IoT. Quando iniciado um teste no ambiente web ou mobile,
 as infirmações são registradas nessa tabela, com a coluna status pendente. O IoT consome essa informação para iniciar o teste,
 marcando como conluído após o consumo.
 
